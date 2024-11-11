@@ -3,6 +3,7 @@ import Mathlib.Analysis.Calculus.FDeriv.Basic
 import Mathlib.Analysis.Calculus.Deriv.Basic
 import Mathlib.Analysis.Calculus.LineDeriv.Basic
 import Mathlib.Analysis.Calculus.Deriv.Add
+import Mathlib.Analysis.Calculus.Deriv.Shift
 import Mathlib.Data.Matrix.Basic
 import Mathlib.LinearAlgebra.Basis.Defs
 import Mathlib.Data.Real.Basic
@@ -92,6 +93,20 @@ theorem lineDeriv_sub (f g : E → F) (x v : E)
   have sub_deriv := HasDerivAt.sub hf_deriv hg_deriv
   exact HasDerivAt.deriv sub_deriv
 
+theorem lineDeriv_fsmul (c : 𝕜) (f : E → F) (x v : E) (hf : LineDifferentiableAt 𝕜 f x v): 
+  lineDeriv 𝕜 (fun x => c • f x) x v = c • lineDeriv 𝕜 f x v := by
+  simp only [lineDeriv]
+  apply HasDerivAt.deriv
+  apply HasDerivAt.const_smul
+  exact DifferentiableAt.hasDerivAt hf
+  
+
+theorem lineDeriv_const (c : F) (x v : E) :
+  lineDeriv 𝕜 (fun _ => c) x v = 0 := by
+  simp only [lineDeriv]
+  apply HasDerivAt.deriv
+  exact hasDerivAt_const (0 : 𝕜) c
+
 /-- Partial derivative of a sum is the sum of partial derivatives -/
 theorem partialDeriv_add {f g : (n → 𝕜) → F} {i : n} {x : n → 𝕜}
   (hf : LineDifferentiableAt 𝕜 f x (standardBasis i)) (hg : LineDifferentiableAt 𝕜 g x (standardBasis i)) :
@@ -109,9 +124,8 @@ theorem partialDeriv_smul {f : (n → 𝕜) → F} {i : n} {x : n → 𝕜} (c :
     partialDeriv (fun y => c • f y) i x = c • partialDeriv f i x := by
 
     simp only [partialDeriv]
-
-    have h := HasLineDerivWithinAt.smul c hf
-    exact h
+    apply lineDeriv_fsmul c f x (standardBasis i)
+    apply hf
 
 /-- Partial derivative of negation -/
 theorem partialDeriv_neg {f : (n → 𝕜) → F} {i : n} {x : n → 𝕜}
@@ -128,7 +142,7 @@ theorem partialDeriv_const {i : n} {x : n → 𝕜} (c : F) :
   -- Unfold to line derivative
   simp only [partialDeriv]
   -- Use the fact that line derivative of constant is zero
-  exact lineDeriv_const 𝕜 c x (standardBasis i)
+  exact lineDeriv_const c x (standardBasis i)
 
 /-!
 # Differential Operators
