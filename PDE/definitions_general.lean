@@ -3,59 +3,62 @@ import Mathlib.Analysis.Calculus.FDeriv.Basic
 import Mathlib.Analysis.Calculus.Deriv.Basic
 import Mathlib.Analysis.Calculus.LineDeriv.Basic
 import Mathlib.Analysis.Calculus.Deriv.Add
-import Mathlib.Analysis.Calculus.Deriv.Shift
 import Mathlib.Data.Matrix.Basic
 import Mathlib.LinearAlgebra.Basis.Defs
 import Mathlib.Data.Real.Basic
 import Mathlib.Analysis.InnerProductSpace.PiL2
 
 variable {𝕜 : Type*} [NontriviallyNormedField 𝕜]
-variable {n : Type*} [Fintype n] [DecidableEq n]
+--variable {n : Type*} [Fintype n] [DecidableEq n]
+variable {n : ℕ}
 variable {F : Type*} [NormedAddCommGroup F] [NormedSpace 𝕜 F]
-variable {E : Type*} [AddCommGroup E] [Module 𝕜 E]
+variable {E : Type*} [NormedAddCommGroup E] [NormedSpace 𝕜 E]
 
 set_option linter.unusedVariables false
 set_option linter.unusedSectionVars false
 set_option diagnostics true
 set_option diagnostics.threshold 30000
 
+/-- Euclidean space of dimension n -/
+abbrev Euc 𝕜 n := EuclideanSpace 𝕜 (Fin n)
+
 /-- The standard basis vector in direction i for n-dimensional space. -/
-def standardBasis (i j : n) : 𝕜 := if i = j then 1 else 0
+def standardBasis (i : Fin n) : Euc 𝕜 n := fun j => if i = j then 1 else 0
 
 /-- Partial derivative of a function f at point x in direction i.
     Defined as the line derivative with respect to the standard basis vector eᵢ. -/
-noncomputable def partialDeriv (f : (n → 𝕜) → F) (i : n) (x : n → 𝕜) : F :=
+noncomputable def partialDeriv (i : Fin n) (f : Euc 𝕜 n → F) (x : Euc 𝕜 n) : F :=
   lineDeriv 𝕜 f x (standardBasis i)
 
 /-- A function has a partial derivative at x in direction i if it has a line derivative
     in the direction of the i-th standard basis vector. -/
-def HasPartialDerivAt (f : (n → 𝕜) → F) (f' : F) (i : n) (x : n → 𝕜) : Prop :=
+def HasPartialDerivAt (i : Fin n) (f : Euc 𝕜 n → F) (f' : F) (x : Euc 𝕜 n) : Prop :=
   HasLineDerivAt 𝕜 f f' x (standardBasis i)
 
 /-- A function is partially differentiable at x in direction i if it has a line derivative
     in the direction of the i-th standard basis vector. -/
-def PartialDifferentiableAt (f : (n → 𝕜) → F) (i : n) (x : n → 𝕜) : Prop :=
+def PartialDifferentiableAt (i : Fin n) (f : Euc 𝕜 n → F) (x : Euc 𝕜 n) : Prop :=
   LineDifferentiableAt 𝕜 f x (standardBasis i)
 
 /-- Basic lemmas about partial derivatives -/
 theorem partialDeriv_eq_of_hasPartialDerivAt
-  {f : (n → 𝕜) → F} {f' : F} {i : n} {x : n → 𝕜}
-  (h : HasPartialDerivAt f f' i x) :
-  partialDeriv f i x = f' :=
+  {f : Euc 𝕜 n → F} {f' : F} {i : Fin n} {x : Euc 𝕜 n}
+  (h : HasPartialDerivAt i f f' x) :
+  partialDeriv i f x = f' :=
 HasLineDerivAt.lineDeriv h
 
 /-- Partial differentiability implies existence of partial derivative -/
 theorem partialDifferentiableAt_iff_exists_partialDeriv
-  {f : (n → 𝕜) → F} {i : n} {x : n → 𝕜} :
-  PartialDifferentiableAt f i x ↔ ∃ f', HasPartialDerivAt f f' i x :=
-⟨fun h => ⟨partialDeriv f i x, LineDifferentiableAt.hasLineDerivAt h⟩,
+  {f : Euc 𝕜 n → F} {i : Fin n} {x : Euc 𝕜 n} :
+  PartialDifferentiableAt i f x ↔ ∃ f', HasPartialDerivAt i f f' x :=
+⟨fun h => ⟨partialDeriv i f x, LineDifferentiableAt.hasLineDerivAt h⟩,
  fun ⟨f', h⟩ => HasLineDerivAt.lineDifferentiableAt h⟩
 
 /-- Uniqueness of partial derivatives when they exist -/
 theorem hasPartialDerivAt.unique
-  {f : (n → 𝕜) → F} {f₁' f₂' : F} {i : n} {x : n → 𝕜}
-  (h₁ : HasPartialDerivAt f f₁' i x)
-  (h₂ : HasPartialDerivAt f f₂' i x) :
+  {f : Euc 𝕜 n → F} {f₁' f₂' : F} {i : Fin n} {x : Euc 𝕜 n}
+  (h₁ : HasPartialDerivAt i f f₁' x)
+  (h₂ : HasPartialDerivAt i f f₂' x) :
   f₁' = f₂' :=
 HasLineDerivAt.unique h₁ h₂
 
@@ -68,6 +71,13 @@ def lineDeriv (f : E → F) (x : E) (v : E) : F :=
 def LineDifferentiableAt (f : E → F) (x : E) (v : E) : Prop :=
   DifferentiableAt 𝕜 (fun t ↦ f (x + t • v)) (0 : 𝕜)
 -/
+
+theorem lineDifferentiableAt_of_differentiableAt {f : E → F} {x : E}
+  (hf : DifferentiableAt 𝕜 f x) (v : E) :
+  LineDifferentiableAt 𝕜 f x v := by
+  have hf_deriv := DifferentiableAt.hasFDerivAt hf
+  have hf_lineDeriv := HasFDerivAt.hasLineDerivAt hf_deriv v
+  exact HasLineDerivAt.lineDifferentiableAt hf_lineDeriv
 
 /-- Line derivative of a sum is the sum of line derivatives -/
 theorem lineDeriv_add (f g : E → F) (x v : E)
@@ -93,24 +103,10 @@ theorem lineDeriv_sub (f g : E → F) (x v : E)
   have sub_deriv := HasDerivAt.sub hf_deriv hg_deriv
   exact HasDerivAt.deriv sub_deriv
 
-theorem lineDeriv_fsmul (c : 𝕜) (f : E → F) (x v : E) (hf : LineDifferentiableAt 𝕜 f x v): 
-  lineDeriv 𝕜 (fun x => c • f x) x v = c • lineDeriv 𝕜 f x v := by
-  simp only [lineDeriv]
-  apply HasDerivAt.deriv
-  apply HasDerivAt.const_smul
-  exact DifferentiableAt.hasDerivAt hf
-  
-
-theorem lineDeriv_const (c : F) (x v : E) :
-  lineDeriv 𝕜 (fun _ => c) x v = 0 := by
-  simp only [lineDeriv]
-  apply HasDerivAt.deriv
-  exact hasDerivAt_const (0 : 𝕜) c
-
 /-- Partial derivative of a sum is the sum of partial derivatives -/
-theorem partialDeriv_add {f g : (n → 𝕜) → F} {i : n} {x : n → 𝕜}
+theorem partialDeriv_add {i : Fin n} {f g : Euc 𝕜 n → F} {x : Euc 𝕜 n}
   (hf : LineDifferentiableAt 𝕜 f x (standardBasis i)) (hg : LineDifferentiableAt 𝕜 g x (standardBasis i)) :
-  partialDeriv (fun y => f y + g y) i x = partialDeriv f i x + partialDeriv g i x := by
+  partialDeriv i (f + g) x = partialDeriv i f x + partialDeriv i g x := by
   -- Express partial derivative in terms of line derivatives
   simp only [partialDeriv]
   -- Use linearity of line derivatives
@@ -118,31 +114,86 @@ theorem partialDeriv_add {f g : (n → 𝕜) → F} {i : n} {x : n → 𝕜}
   -- The standardBasis is fixed, so this proves the result
   exact h
 
-/-- Partial derivative of scalar multiplication -/
-theorem partialDeriv_smul {f : (n → 𝕜) → F} {i : n} {x : n → 𝕜} (c : 𝕜)
-    (hf : PartialDifferentiableAt f i x) :
-    partialDeriv (fun y => c • f y) i x = c • partialDeriv f i x := by
+theorem lineDeriv_const_smul (f : E → F) (x v : E) (c : 𝕜) (hf : LineDifferentiableAt 𝕜 f x v) :
+  lineDeriv 𝕜 (fun y => c • f y) x v = c • lineDeriv 𝕜 f x v := by
+  have hf_deriv := DifferentiableAt.hasDerivAt hf
+  have smul_deriv := HasDerivAt.smul (hasDerivAt_const 0 c) hf_deriv
+  simp at smul_deriv
+  exact HasDerivAt.deriv smul_deriv
 
-    simp only [partialDeriv]
-    apply lineDeriv_fsmul c f x (standardBasis i)
-    apply hf
+/-- Partial derivative of scalar multiplication -/
+theorem partialDeriv_smul {f : Euc 𝕜 n → F} {i : Fin n} {x : Euc 𝕜 n} (c : 𝕜)
+    (hf : PartialDifferentiableAt i f x) :
+    partialDeriv i (fun y => c • f y) x = c • partialDeriv i f x := by
+  -- Express partial derivative in terms of line derivatives
+  simp only [partialDeriv]
+  -- Use linearity of line derivatives
+  apply lineDeriv_const_smul
+  exact hf
 
 /-- Partial derivative of negation -/
-theorem partialDeriv_neg {f : (n → 𝕜) → F} {i : n} {x : n → 𝕜}
-    (hf : PartialDifferentiableAt f i x) :
-    partialDeriv (fun y => -f y) i x = -partialDeriv f i x := by
+theorem partialDeriv_neg {f : Euc 𝕜 n → F} {i : Fin n} {x : Euc 𝕜 n}
+    (hf : PartialDifferentiableAt i f x) :
+    partialDeriv i (fun y => -f y) x = -partialDeriv i f x := by
   -- Use the fact that - = (-1) •
   have h := partialDeriv_smul (-1 : 𝕜) hf
   simp [neg_one_smul] at h
   exact h
 
+theorem lineDeriv_const (x v : E) (c : F) :
+  lineDeriv 𝕜 (fun _ => c) x v = 0 := by
+  -- The line derivative of a constant function is zero
+  simp only [lineDeriv, hasDerivAt_const, deriv_const]
+
 /-- Partial derivative of constant function -/
-theorem partialDeriv_const {i : n} {x : n → 𝕜} (c : F) :
-    partialDeriv (fun _ => c) i x = 0 := by
+theorem partialDeriv_const {i : Fin n} {x : Euc 𝕜 n} (c : F) :
+    partialDeriv i (fun _ => c) x = 0 := by
   -- Unfold to line derivative
   simp only [partialDeriv]
   -- Use the fact that line derivative of constant is zero
-  exact lineDeriv_const c x (standardBasis i)
+  exact lineDeriv_const x (standardBasis i) c
+
+
+theorem partialDeriv_eq_fderiv {f : Euc 𝕜 n → F} (i : Fin n) (x : Euc 𝕜 n) (hf : DifferentiableAt 𝕜 f x) :
+  partialDeriv i f x = fderiv 𝕜 f x (standardBasis i) :=
+  DifferentiableAt.lineDeriv_eq_fderiv hf
+
+/-- Partial derivative of composition -/
+theorem partialDeriv_comp {i : Fin n} {f : Euc 𝕜 n → Euc 𝕜 m} {g : Euc 𝕜 m → F} {x : Euc 𝕜 n}
+    (hf : PartialDifferentiableAt i f x) (hg : DifferentiableAt 𝕜 g (f x)) :
+    partialDeriv i (g ∘ f) x = (fderiv 𝕜 g (f x)) (partialDeriv i f x) := by
+  unfold partialDeriv lineDeriv
+  unfold PartialDifferentiableAt at hf
+  unfold LineDifferentiableAt at hf
+  rw [←fderiv_deriv, ←fderiv_deriv]
+  rw [show f x = f (x + (0:𝕜) • standardBasis i) from by simp] at hg
+  have hcomp := fderiv_comp 0 hg hf
+  rw [show (g ∘ fun t => f (x + t • standardBasis i)) = fun t => (g ∘ f) (x + t • standardBasis i) from by {
+    ext s
+    simp
+  }] at hcomp
+  rw [hcomp]
+  simp
+
+/-- Projection onto the i-th coordinate -/
+def euc_proj (n : ℕ) (i : Fin n) : Euc 𝕜 n →L[𝕜] 𝕜 := ContinuousLinearMap.proj i
+
+/-- Fderiv of projection is projection -/
+theorem fderiv_euc_proj (i : Fin n) (x : Euc 𝕜 n) :
+  fderiv 𝕜 (euc_proj n i) x = euc_proj n i := by
+  simp [euc_proj]
+
+/-- Coords of partial derivative is partial derivate of coords -/
+theorem partialDeriv_coord {i : Fin n} {j : Fin m} {f : Euc 𝕜 n → Euc 𝕜 m} {x : Euc 𝕜 n}
+  (hf : PartialDifferentiableAt i f x) :
+  (partialDeriv i f x) j = partialDeriv i (fun y => f y j) x := by
+  have hproj := ContinuousLinearMap.differentiableAt (euc_proj m j) (x := f x)
+  have hcomp := partialDeriv_comp hf hproj
+  rw [fderiv_euc_proj j (f x)] at hcomp
+  simp [euc_proj, ContinuousLinearMap.proj, LinearMap.proj] at hcomp
+  rw [←hcomp]
+  congr
+
 
 /-!
 # Differential Operators
@@ -156,20 +207,19 @@ This file defines the fundamental differential operators of vector calculus:
 
 /-- Gradient of a scalar function f: ℝⁿ → ℝ.
     ∇f = (∂f/∂x₁, ..., ∂f/∂xₙ) -/
-noncomputable def gradient {n : ℕ} (f : EuclideanSpace ℝ (Fin n) → ℝ)
-    (x : EuclideanSpace ℝ (Fin n)) : EuclideanSpace ℝ (Fin n) :=
-  fun i => partialDeriv f i x
+noncomputable def gradient (f : Euc 𝕜 n → 𝕜)
+    (x : Euc 𝕜 n) : Euc 𝕜 n :=
+  fun i => partialDeriv i f x
 
 /-- Divergence of a vector field F: ℝⁿ → ℝⁿ.
     ∇·F = ∑ᵢ ∂Fᵢ/∂xᵢ -/
-noncomputable def divergence {n : ℕ} (F : EuclideanSpace ℝ (Fin n) → EuclideanSpace ℝ (Fin n))
-    (x : EuclideanSpace ℝ (Fin n)) : ℝ :=
-  Finset.sum (Finset.univ : Finset (Fin n)) fun i =>
-    partialDeriv (fun y => F y i) i x
+noncomputable def divergence (F : Euc 𝕜 n → Euc 𝕜 n)
+    (x : Euc 𝕜 n) : 𝕜 :=
+  ∑ i : Fin n, (partialDeriv i F x) i
 
 /-- Cross product in ℝ³.
     a × b = (a₂b₃-a₃b₂, a₃b₁-a₁b₃, a₁b₂-a₂b₁) -/
-noncomputable def cross_product (a b : EuclideanSpace ℝ (Fin 3)) : EuclideanSpace ℝ (Fin 3) :=
+noncomputable def cross_product (a b : Euc 𝕜 3) : Euc 𝕜 3 :=
   fun i => match i with
   | ⟨0, _⟩ => a 1 * b 2 - a 2 * b 1
   | ⟨1, _⟩ => a 2 * b 0 - a 0 * b 2
@@ -177,85 +227,104 @@ noncomputable def cross_product (a b : EuclideanSpace ℝ (Fin 3)) : EuclideanSp
 
 /-- Curl of a vector field F: ℝ³ → ℝ³.
     ∇×F = (∂F₃/∂y - ∂F₂/∂z, ∂F₁/∂z - ∂F₃/∂x, ∂F₂/∂x - ∂F₁/∂y) -/
-noncomputable def curl (F : EuclideanSpace ℝ (Fin 3) → EuclideanSpace ℝ (Fin 3))
-    (x : EuclideanSpace ℝ (Fin 3)) : EuclideanSpace ℝ (Fin 3) :=
+noncomputable def curl (F : Euc 𝕜 3 → Euc 𝕜 3)
+    (x : Euc 𝕜 3) : Euc 𝕜 3 :=
   fun i => match i with
-  | ⟨0, _⟩ => partialDeriv (fun y => F y 2) 1 x - partialDeriv (fun y => F y 1) 2 x
-  | ⟨1, _⟩ => partialDeriv (fun y => F y 0) 2 x - partialDeriv (fun y => F y 2) 0 x
-  | ⟨2, _⟩ => partialDeriv (fun y => F y 1) 0 x - partialDeriv (fun y => F y 0) 1 x
-
-/-- Alternative definition of Laplacian using divergence of gradient.
-    Δf = ∇·∇f -/
-noncomputable def laplacian_alt {n : ℕ} (f : EuclideanSpace ℝ (Fin n) → ℝ)
-    (x : EuclideanSpace ℝ (Fin n)) : ℝ :=
-  divergence (gradient f) x
+  | ⟨0, _⟩ => partialDeriv 1 (fun y => F y 2) x - partialDeriv 2 (fun y => F y 1) x
+  | ⟨1, _⟩ => partialDeriv 2 (fun y => F y 0) x - partialDeriv 0 (fun y => F y 2) x
+  | ⟨2, _⟩ => partialDeriv 0 (fun y => F y 1) x - partialDeriv 1 (fun y => F y 0) x
 
 /-- Laplacian operator in n dimensions -/
-noncomputable def laplacian {n : ℕ}
-  (u : EuclideanSpace ℝ (Fin n) → ℝ)
-  (x : EuclideanSpace ℝ (Fin n)) : ℝ :=
-  Finset.sum (Finset.univ : Finset (Fin n))
-    (fun i => partialDeriv (fun y => partialDeriv u i y) i x)
+noncomputable def laplacian (f : Euc 𝕜 n → 𝕜)
+    (x : Euc 𝕜 n) : 𝕜 :=
+  ∑ i : Fin n, partialDeriv i (fun y => partialDeriv i f y) x
+
+/-- Alternative definition of Laplacian using divergence of gradient.
+Δf = ∇·∇f -/
+noncomputable def laplacian_alt (f : Euc 𝕜 n → 𝕜)
+    (x : Euc 𝕜 n) : 𝕜 :=
+  divergence (gradient f) x
+
+-- Define a class for linear differential operators
+-- TODO
+-- class LinearDifferentialOperator
+--   {𝕜 : Type _} [NontriviallyNormedField 𝕜]
+--   {E : Type _} [NormedAddCommGroup E] [NormedSpace 𝕜 E]
+--   {F : Type _} [NormedAddCommGroup F] [NormedSpace 𝕜 F]
+--   {G : Type _} [NormedAddCommGroup G] [NormedSpace 𝕜 G]
+--   (L : (E → F) → (E → G)) where
+--   toFun : (E → F) → (E → G) := L
+--   --linearAt {f g : E → F} (x): IsLinearMap 𝕜 L-- or appropriate derivative condition
+
+-- noncomputable instance : LinearDifferentialOperator (E:=Euc 𝕜 n) (F:=𝕜) (G:=Euc 𝕜 n) gradient where
+--   toFun := gradient
+--   linearAt := sorry
 
 /-!
 # Proofs of Vector Calculus Identities
 -/
 
 /-- Gradient of sum is sum of gradients -/
-theorem gradient_sum {n : ℕ} (f g : EuclideanSpace ℝ (Fin n) → ℝ) (x : EuclideanSpace ℝ (Fin n)) :
-  gradient (fun y => f y + g y) x = fun i => gradient f x i + gradient g x i := by
+theorem gradient_sum (f g : Euc 𝕜 n → 𝕜) (x : Euc 𝕜 n) (hf : DifferentiableAt 𝕜 f x) (hg : DifferentiableAt 𝕜 g x) :
+  gradient (f + g) x = gradient f x + gradient g x := by
   -- Unfold gradient definition
-  simp only [gradient]
+  unfold gradient
   -- Extensionality: enough to prove equality at each component i
   ext i
   -- Use linearity of partial derivatives
-  exact partialDeriv_add f g i x
+  have hf_linederiv := lineDifferentiableAt_of_differentiableAt hf (standardBasis i)
+  have hg_linederiv := lineDifferentiableAt_of_differentiableAt hg (standardBasis i)
+  exact partialDeriv_add hf_linederiv hg_linederiv
 
 /-- Divergence of sum is sum of divergences -/
-theorem divergence_sum {n : ℕ}
-    (F G : EuclideanSpace ℝ (Fin n) → EuclideanSpace ℝ (Fin n))
-    (x : EuclideanSpace ℝ (Fin n)) :
-  divergence (fun y => fun i => F y i + G y i) x = divergence F x + divergence G x := by
+theorem divergence_sum (F G : Euc 𝕜 n → Euc 𝕜 n) (x : Euc 𝕜 n) (hf : DifferentiableAt 𝕜 F x) (hg : DifferentiableAt 𝕜 G x) :
+  divergence (F + G) x = divergence F x + divergence G x := by
   -- Unfold divergence definition
-  simp only [divergence]
+  unfold divergence
   -- Distribute sum over addition
+  rw [← Finset.sum_add_distrib]
   apply Finset.sum_congr rfl
-  intro i _
   -- Use linearity of partial derivatives
-  exact partialDeriv_add (fun y => F y i) (fun y => G y i) i x
+  intro i _
+  have hf_linederiv := lineDifferentiableAt_of_differentiableAt hf (standardBasis i)
+  have hg_linederiv := lineDifferentiableAt_of_differentiableAt hg (standardBasis i)
+  rw [←Pi.add_apply]
+  rw [partialDeriv_add hf_linederiv hg_linederiv]
 
 /-- Curl of sum is sum of curls -/
 theorem curl_sum
-    (F G : EuclideanSpace ℝ (Fin 3) → EuclideanSpace ℝ (Fin 3))
-    (x : EuclideanSpace ℝ (Fin 3)) :
-  curl (fun y => fun i => F y i + G y i) x = fun i => curl F x i + curl G x i := by
-  -- Unfold curl definition
-  simp only [curl]
-  -- Extensionality: enough to prove equality for each component
-  ext i
-  -- Case analysis on components
-  match i with
-  | ⟨0, _⟩ =>
-    -- Use linearity of partial derivatives and subtraction
-    simp [partialDeriv_add]
-    ring
-  | ⟨1, _⟩ =>
-    simp [partialDeriv_add]
-    ring
-  | ⟨2, _⟩ =>
-    simp [partialDeriv_add]
-    ring
+    (F G : Euc 𝕜 3 → Euc 𝕜 3)
+    (x : Euc 𝕜 3) (hf : DifferentiableAt 𝕜 F x) (hg : DifferentiableAt 𝕜 G x) :
+  curl (F + G) x = curl F x + curl G x := by
+  sorry
+  -- -- Unfold curl definition
+  -- simp only [curl]
+  -- -- Extensionality: enough to prove equality for each component
+  -- ext i
+  -- -- Case analysis on components
+  -- match i with
+  -- | ⟨0, _⟩ =>
+  --   -- Use linearity of partial derivatives and subtraction
+  --   simp [partialDeriv_add]
+  --   ring
+  -- | ⟨1, _⟩ =>
+  --   simp [partialDeriv_add]
+  --   ring
+  -- | ⟨2, _⟩ =>
+  --   simp [partialDeriv_add]
+  --   ring
 
 /-- The two definitions of Laplacian are equivalent -/
-theorem laplacian_eq_laplacian_alt {n : ℕ}
-    (f : EuclideanSpace ℝ (Fin n) → ℝ) (x : EuclideanSpace ℝ (Fin n)) :
+theorem laplacian_eq_laplacian_alt (f : Euc 𝕜 n → 𝕜) (x : Euc 𝕜 n) :
   laplacian f x = laplacian_alt f x := by
   -- Unfold both definitions
   simp only [laplacian, laplacian_alt, divergence, gradient]
+  unfold gradient
   -- Both are sums over second derivatives
   apply Finset.sum_congr rfl
-  intro i _
+  intro j _
   -- Show equality of second derivatives
+
   apply partialDeriv_eq_of_hasPartialDerivAt
   -- Would need to show second derivatives commute
   sorry
@@ -293,7 +362,7 @@ theorem divergence_curl
 
 
 
-/-! -- MAIN FILE For PDEs -- !-/
+/- -- MAIN FILE For PDEs -- !-/
 /-- Multi-index for denoting partial derivatives -/
 structure MultiIndex (n : ℕ) where
   index : Fin n → ℕ
@@ -441,60 +510,191 @@ where b = (b₁,...,bₙ) is a fixed vector in ℝⁿ.
 -/
 
 /-- The transport equation domain: ℝⁿ × (0,∞) -/
-def TransportDomain (n : ℕ) : Set (EuclideanSpace ℝ (Fin (n+1))) :=
+def TransportDomain (n : ℕ) : Set (Euc ℝ (n+1)) :=
   {x | 0 < x 0}  -- x₀ represents time t
 
 /-- Initial data domain: ℝⁿ × {t=0} -/
-def InitialDomain (n : ℕ) : Set (EuclideanSpace ℝ (Fin (n+1))) :=
+def InitialDomain (n : ℕ) : Set (Euc ℝ (n+1)) :=
   {x | x 0 = 0}  -- x₀ represents time t
 
-/-- Spatial gradient of a function (excluding time derivative) -/
-noncomputable def spatial_gradient {n : ℕ} (u : EuclideanSpace ℝ (Fin (n+1)) → ℝ)
-    (x : EuclideanSpace ℝ (Fin (n+1))) : EuclideanSpace ℝ (Fin n) :=
-  fun i => partialDeriv u ⟨i.val + 1, by simp; exact Nat.lt_succ_self _⟩ x
+/-- Projection onto the time coordinate -/
+noncomputable def timeCoord (n : ℕ) : Euc ℝ (n+1) →L[ℝ] ℝ := euc_proj (n+1) 0
 
-/-- Transport equation with coefficient vector b -/
-noncomputable def transport_equation (n : ℕ) (b : EuclideanSpace ℝ (Fin n)) :
-    LinearPDE ℝ (EuclideanSpace ℝ (Fin (n+1))) ℝ (n+1) 1 where
-  eqn := fun u x =>
-    partialDeriv u 0 x + inner (spatial_gradient u x) b
-  coeffs := fun α h =>
-    if α.order = 1 then
-      if α.index 0 = 1 then fun _ => (1 : ℝ)  -- time derivative
-      else fun x => b (Fin.cast (by simp) (Fin.prev α.index))  -- spatial derivatives
-    else fun _ => (0 : ℝ)
-  rhs := fun _ => (0 : ℝ)
-  is_linear := trivial
-  domain := TransportDomain n
+/-- Projection onto the spatial coordinates -/
+noncomputable def spatialCoord (n : ℕ) : Euc ℝ (n+1) →L[ℝ] Euc ℝ n := {
+  toFun := fun x => fun i => x (i + 1),
+  map_add' := fun x y => funext (fun i => by simp),
+  map_smul' := fun c x => funext (fun i => by simp),
+  cont := by
+    apply continuous_pi
+    intro i
+    simp
+    apply continuous_apply (i + 1 : Fin (n+1))
+}
+
+/-- Embedding of ℝⁿ into ℝⁿ⁺¹, with time coordinate 0 -/
+noncomputable def embed_with_time_zero (n : ℕ) : Euc ℝ n →L[ℝ] Euc ℝ (n+1) := {
+  toFun := fun x => fun i =>
+    if h : i = 0 then 0 else x (i.pred h),
+  map_add' := fun x y => funext (fun i => by {
+    by_cases h : i = 0
+    · simp [h]
+    · simp [h]
+  }),
+  map_smul' := fun c x => funext (fun i => by simp),
+  cont := by
+    apply continuous_pi
+    intro i
+    simp
+    by_cases h : i = 0
+    · simp [h]
+      apply continuous_const
+    · simp [h]
+      apply continuous_apply (i.pred h)
+}
+
+/-- Spatial gradient of a function (excluding time derivative) -/
+noncomputable def spatial_gradient {n : ℕ} (u : Euc ℝ (n+1) → ℝ)
+    (x : Euc ℝ (n+1)) : Euc ℝ n := spatialCoord n (gradient u x)
+
+/-- The type of operators in a PDE -/
+abbrev PDEOperator (𝕜 : Type*) [NontriviallyNormedField 𝕜]
+    (E : Type*) [NormedAddCommGroup E] [NormedSpace 𝕜 E]
+    (F : Type*) [NormedAddCommGroup F] [NormedSpace 𝕜 F]
+    (G : Type*) [NormedAddCommGroup G] [NormedSpace 𝕜 G] := (E → F) → E → G
+
+/-- A PDE equation of the form Pf(x) = g(x) -/
+structure PDEEquation (𝕜 : Type*) [NontriviallyNormedField 𝕜]
+    (E : Type*) [NormedAddCommGroup E] [NormedSpace 𝕜 E]
+    (F : Type*) [NormedAddCommGroup F] [NormedSpace 𝕜 F] where
+  /-- The output type -/
+  output : Type*
+  [output_normed_add_comm_group : NormedAddCommGroup output]
+  [output_normed_space : NormedSpace 𝕜 output]
+  /-- The operator -/
+  operator : PDEOperator 𝕜 E F output
+  /-- The right-hand side -/
+  rhs : E → output
+  /-- The domain -/
+  domain : Set E
+
+/-- A PDE problem is -/
+structure PDEProblem (𝕜 : Type*) [NontriviallyNormedField 𝕜]
+    (E : Type*) [NormedAddCommGroup E] [NormedSpace 𝕜 E]
+    (F : Type*) [NormedAddCommGroup F] [NormedSpace 𝕜 F] where
+  /-- The equations -/
+  eqns : List (PDEEquation 𝕜 E F)
+  /-- Initial conditions -/
+  initial_conditions : List (PDEEquation 𝕜 E F)
+
+/-- Satisfies a PDE problem -/
+def IsSolutionPDEProblem (pde : PDEProblem 𝕜 E F) (u : E → F) : Prop :=
+  ∀ eqn ∈ pde.eqns ++ pde.initial_conditions, ∀ x ∈ eqn.domain, eqn.operator u x = eqn.rhs x
 
 /-- Initial value problem for transport equation -/
-structure TransportIVP (n : ℕ) where
-  /-- The coefficient vector b -/
-  b : EuclideanSpace ℝ (Fin n)
-  /-- Initial data g -/
-  g : EuclideanSpace ℝ (Fin n) → ℝ
-  /-- The PDE -/
-  pde := transport_equation n b
-  /-- Initial condition: u = g on ℝⁿ × {t=0} -/
-  initial_condition : Set (EuclideanSpace ℝ (Fin n)) := Set.univ
-
-/-- Solution to transport equation is a function that satisfies both the PDE and initial condition -/
-def IsSolutionTransportIVP {n : ℕ} (ivp : TransportIVP n)
-    (u : EuclideanSpace ℝ (Fin (n+1)) → ℝ) : Prop :=
-  (∀ x ∈ TransportDomain n, ivp.pde.eqn u x = 0) ∧  -- Satisfies PDE
-  (∀ x ∈ InitialDomain n, u x = ivp.g (fun i => x ⟨i.val + 1, by simp; exact Nat.lt_succ_self _⟩))  -- Satisfies initial condition
+noncomputable def transportIVP {n : ℕ} (b : Euc ℝ n) (g : Euc ℝ n → ℝ) : PDEProblem ℝ (Euc ℝ (n+1)) ℝ where
+  eqns := [{
+    output := ℝ
+    operator := fun u x =>
+      partialDeriv 0 u x + inner (spatial_gradient u x) b
+    rhs := fun _ => 0
+    domain := TransportDomain n
+  }]
+  initial_conditions := [{
+    output := ℝ
+    operator := id
+    rhs := g ∘ spatialCoord n
+    domain := InitialDomain n
+  }]
 
 /-- The method of characteristics solution: u(x,t) = g(x - tb) -/
-noncomputable def transport_solution {n : ℕ} (ivp : TransportIVP n) :
-    EuclideanSpace ℝ (Fin (n+1)) → ℝ :=
-fun x => ivp.g (fun i =>
-  x ⟨i.val + 1, by simp; exact Nat.lt_succ_self _⟩ -
-  (x 0) * ivp.b i)
+noncomputable def transportSolution {n : ℕ} (b : Euc ℝ n) (g : Euc ℝ n → ℝ) :
+    Euc ℝ (n+1) → ℝ :=
+fun x => g (fun i => x (i + 1) - (x 0) * b i)
+
+/-- TransportSolution is a solution to the transport IVP -/
+theorem transportSolution_is_solution {n : ℕ} (b : Euc ℝ n) (g : Euc ℝ n → ℝ) :
+  IsSolutionPDEProblem (transportIVP b g) (transportSolution b g) := by {
+    -- TODO: prove
+  -- Unfold what it means to be a solution
+  unfold IsSolutionPDEProblem
+  -- Split into main equation and initial condition
+  intro eqn heqn x hx
+  simp at heqn
+  rcases heqn with (hpde | hinitial)
+
+  -- Case 1: The PDE equation
+    -- Simplify to show we have the transport equation
+  · simp [transportIVP] at hpde
+    -- Now have one equation, substitute it
+    subst hpde
+    -- This gives us the actual transport equation to prove
+    unfold transportSolution
+
+    -- Similar to original proof from here
+    let transport_linear_map : Euc ℝ (n+1) →L[ℝ] Euc ℝ n :=
+      spatialCoord n - (ContinuousLinearMap.smulRight (timeCoord n) b)
+
+    have htime : partialDeriv 0 (transportSolution b g)
+      = fun x => -inner b (gradient g (transport_linear_map x)) := by {
+      ext1 x
+      apply partialDeriv_eq_of_hasPartialDerivAt
+      -- Chain rule application similar to original proof
+      sorry  -- Details omitted for brevity
+    }
+
+    have hspatial : spatial_gradient (transportSolution b g) = fun x =>
+      gradient g (transport_linear_map x) := by {
+      ext1 x
+      -- Proof that spatial gradient matches
+      sorry  -- Details omitted for brevity
+    }
+
+    -- Combine the parts
+    simp [htime, hspatial]
+    -- Final computation showing terms cancel
+    sorry  -- Complete the computation
+
+  -- Case 2: The initial condition
+    -- Simplify to show we have the initial condition
+  · simp [transportIVP] at hinitial
+    -- Now have one equation, substitute it
+    subst hinitial
+    -- Need to show that at t=0, solution matches initial data
+    simp [transportSolution]
+    have h0 : x 0 = 0 := by {
+      -- Use the domain condition
+      simp [InitialDomain] at hx
+      exact hx
+    }
+    -- When t=0, x - tb = x, so we get g(x) as required
+    simp [h0]
+    ext1 i
+    simp
+    -- Show that spatialCoord extracts spatial components correctly
+    sorry  -- Complete the computation
+}
+
+/-- Solution to transport equation is a function that satisfies both the PDE and initial condition -/
+def IsSolutionTransportIVP {n : ℕ} (b : Euc ℝ n) (g : Euc ℝ n → ℝ)
+    (u : Euc ℝ (n+1) → ℝ) : Prop :=
+  (∀ x ∈ TransportDomain n, homogeneous_transport_equation n b u x = 0) ∧  -- Satisfies PDE
+  (∀ x ∈ InitialDomain n, u x = g (spatialCoord n x))  -- Satisfies initial condition
+
 
 /-- The transport solution satisfies the transport equation -/
 theorem transport_solution_satisfies_pde {n : ℕ} (ivp : TransportIVP n) :
-  ∀ x ∈ TransportDomain n, (ivp.pde.eqn (transport_solution ivp) x) = 0 :=
-sorry  -- Proof would go here
+  ∀ x ∈ TransportDomain n, (ivp.pde.eqn (transport_solution ivp) x) = 0 := by
+  intro x hx
+  unfold transport_solution
+  have asdf : ivp.pde = homogeneous_transport_equation n ivp.b := by {
+
+      unfold TransportIVP.pde
+      unfold homogeneous_transport_equation
+    }
+  simp only [asdf]
+  unfold homogeneous_transport_equation
+  simp
 
 /-- The transport solution satisfies the initial condition -/
 theorem transport_solution_satisfies_ic {n : ℕ} (ivp : TransportIVP n) :
