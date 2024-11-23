@@ -9,52 +9,56 @@ import Mathlib.Data.Real.Basic
 import Mathlib.Analysis.InnerProductSpace.PiL2
 
 variable {𝕜 : Type*} [NontriviallyNormedField 𝕜]
-variable {n : Type*} [Fintype n] [DecidableEq n]
+--variable {n : Type*} [Fintype n] [DecidableEq n]
+variable {n : ℕ}
 variable {F : Type*} [NormedAddCommGroup F] [NormedSpace 𝕜 F]
-variable {E : Type*} [AddCommGroup E] [Module 𝕜 E]
+variable {E : Type*} [NormedAddCommGroup E] [NormedSpace 𝕜 E]
 
 set_option linter.unusedVariables false
 set_option linter.unusedSectionVars false
 set_option diagnostics true
 set_option diagnostics.threshold 30000
 
+/-- Euclidean space of dimension n -/
+abbrev Euc 𝕜 n := EuclideanSpace 𝕜 (Fin n)
+
 /-- The standard basis vector in direction i for n-dimensional space. -/
-def standardBasis (i j : n) : 𝕜 := if i = j then 1 else 0
+def standardBasis (i : Fin n) : Euc 𝕜 n := fun j => if i = j then 1 else 0
 
 /-- Partial derivative of a function f at point x in direction i.
     Defined as the line derivative with respect to the standard basis vector eᵢ. -/
-noncomputable def partialDeriv (f : (n → 𝕜) → F) (i : n) (x : n → 𝕜) : F :=
+noncomputable def partialDeriv (i : Fin n) (f : Euc 𝕜 n → F) (x : Euc 𝕜 n) : F :=
   lineDeriv 𝕜 f x (standardBasis i)
 
 /-- A function has a partial derivative at x in direction i if it has a line derivative
     in the direction of the i-th standard basis vector. -/
-def HasPartialDerivAt (f : (n → 𝕜) → F) (f' : F) (i : n) (x : n → 𝕜) : Prop :=
+def HasPartialDerivAt (i : Fin n) (f : Euc 𝕜 n → F) (f' : F) (x : Euc 𝕜 n) : Prop :=
   HasLineDerivAt 𝕜 f f' x (standardBasis i)
 
 /-- A function is partially differentiable at x in direction i if it has a line derivative
     in the direction of the i-th standard basis vector. -/
-def PartialDifferentiableAt (f : (n → 𝕜) → F) (i : n) (x : n → 𝕜) : Prop :=
+def PartialDifferentiableAt (i : Fin n) (f : Euc 𝕜 n → F) (x : Euc 𝕜 n) : Prop :=
   LineDifferentiableAt 𝕜 f x (standardBasis i)
 
 /-- Basic lemmas about partial derivatives -/
 theorem partialDeriv_eq_of_hasPartialDerivAt
-  {f : (n → 𝕜) → F} {f' : F} {i : n} {x : n → 𝕜}
-  (h : HasPartialDerivAt f f' i x) :
-  partialDeriv f i x = f' :=
+  {f : Euc 𝕜 n → F} {f' : F} {i : Fin n} {x : Euc 𝕜 n}
+  (h : HasPartialDerivAt i f f' x) :
+  partialDeriv i f x = f' :=
 HasLineDerivAt.lineDeriv h
 
 /-- Partial differentiability implies existence of partial derivative -/
 theorem partialDifferentiableAt_iff_exists_partialDeriv
-  {f : (n → 𝕜) → F} {i : n} {x : n → 𝕜} :
-  PartialDifferentiableAt f i x ↔ ∃ f', HasPartialDerivAt f f' i x :=
-⟨fun h => ⟨partialDeriv f i x, LineDifferentiableAt.hasLineDerivAt h⟩,
+  {f : Euc 𝕜 n → F} {i : Fin n} {x : Euc 𝕜 n} :
+  PartialDifferentiableAt i f x ↔ ∃ f', HasPartialDerivAt i f f' x :=
+⟨fun h => ⟨partialDeriv i f x, LineDifferentiableAt.hasLineDerivAt h⟩,
  fun ⟨f', h⟩ => HasLineDerivAt.lineDifferentiableAt h⟩
 
 /-- Uniqueness of partial derivatives when they exist -/
 theorem hasPartialDerivAt.unique
-  {f : (n → 𝕜) → F} {f₁' f₂' : F} {i : n} {x : n → 𝕜}
-  (h₁ : HasPartialDerivAt f f₁' i x)
-  (h₂ : HasPartialDerivAt f f₂' i x) :
+  {f : Euc 𝕜 n → F} {f₁' f₂' : F} {i : Fin n} {x : Euc 𝕜 n}
+  (h₁ : HasPartialDerivAt i f f₁' x)
+  (h₂ : HasPartialDerivAt i f f₂' x) :
   f₁' = f₂' :=
 HasLineDerivAt.unique h₁ h₂
 
@@ -67,6 +71,16 @@ def lineDeriv (f : E → F) (x : E) (v : E) : F :=
 def LineDifferentiableAt (f : E → F) (x : E) (v : E) : Prop :=
   DifferentiableAt 𝕜 (fun t ↦ f (x + t • v)) (0 : 𝕜)
 -/
+
+theorem hasLineDerivAt_of_differentiableAt {f : E → F} {f' : F} {x : E} {v : E}
+
+theorem lineDifferentiableAt_of_differentiableAt {f : E → F} {x : E}
+  (hf : DifferentiableAt 𝕜 f x) (v : E) :
+  LineDifferentiableAt 𝕜 f x v := by
+  have hf_deriv := DifferentiableAt.hasFDerivAt hf
+  have hf_lineDeriv := HasFDerivAt.hasLineDerivAt hf_deriv v
+  exact HasLineDerivAt. hf_lineDeriv
+
 
 /-- Line derivative of a sum is the sum of line derivatives -/
 theorem lineDeriv_add (f g : E → F) (x v : E)
@@ -93,9 +107,9 @@ theorem lineDeriv_sub (f g : E → F) (x v : E)
   exact HasDerivAt.deriv sub_deriv
 
 /-- Partial derivative of a sum is the sum of partial derivatives -/
-theorem partialDeriv_add {f g : (n → 𝕜) → F} {i : n} {x : n → 𝕜}
+theorem partialDeriv_add {i : Fin n} {f g : Euc 𝕜 n → F} {x : Euc 𝕜 n}
   (hf : LineDifferentiableAt 𝕜 f x (standardBasis i)) (hg : LineDifferentiableAt 𝕜 g x (standardBasis i)) :
-  partialDeriv (fun y => f y + g y) i x = partialDeriv f i x + partialDeriv g i x := by
+  partialDeriv i (fun y => f y + g y) x = partialDeriv i f x + partialDeriv i g x := by
   -- Express partial derivative in terms of line derivatives
   simp only [partialDeriv]
   -- Use linearity of line derivatives
@@ -103,32 +117,44 @@ theorem partialDeriv_add {f g : (n → 𝕜) → F} {i : n} {x : n → 𝕜}
   -- The standardBasis is fixed, so this proves the result
   exact h
 
+theorem lineDeriv_const_smul (f : E → F) (x v : E) (c : 𝕜) (hf : LineDifferentiableAt 𝕜 f x v) :
+  lineDeriv 𝕜 (fun y => c • f y) x v = c • lineDeriv 𝕜 f x v := by
+  have hf_deriv := DifferentiableAt.hasDerivAt hf
+  have smul_deriv := HasDerivAt.smul (hasDerivAt_const 0 c) hf_deriv
+  simp at smul_deriv
+  exact HasDerivAt.deriv smul_deriv
+
 /-- Partial derivative of scalar multiplication -/
-theorem partialDeriv_smul {f : (n → 𝕜) → F} {i : n} {x : n → 𝕜} (c : 𝕜)
-    (hf : PartialDifferentiableAt f i x) :
-    partialDeriv (fun y => c • f y) i x = c • partialDeriv f i x := by
-
-    simp only [partialDeriv]
-
-    have h := HasLineDerivWithinAt.smul c hf
-    exact h
+theorem partialDeriv_smul {f : Euc 𝕜 n → F} {i : Fin n} {x : Euc 𝕜 n} (c : 𝕜)
+    (hf : PartialDifferentiableAt i f x) :
+    partialDeriv i (fun y => c • f y) x = c • partialDeriv i f x := by
+  -- Express partial derivative in terms of line derivatives
+  simp only [partialDeriv]
+  -- Use linearity of line derivatives
+  apply lineDeriv_const_smul
+  exact hf
 
 /-- Partial derivative of negation -/
-theorem partialDeriv_neg {f : (n → 𝕜) → F} {i : n} {x : n → 𝕜}
-    (hf : PartialDifferentiableAt f i x) :
-    partialDeriv (fun y => -f y) i x = -partialDeriv f i x := by
+theorem partialDeriv_neg {f : Euc 𝕜 n → F} {i : Fin n} {x : Euc 𝕜 n}
+    (hf : PartialDifferentiableAt i f x) :
+    partialDeriv i (fun y => -f y) x = -partialDeriv i f x := by
   -- Use the fact that - = (-1) •
   have h := partialDeriv_smul (-1 : 𝕜) hf
   simp [neg_one_smul] at h
   exact h
 
+theorem lineDeriv_const (x v : E) (c : F) :
+  lineDeriv 𝕜 (fun _ => c) x v = 0 := by
+  -- The line derivative of a constant function is zero
+  simp only [lineDeriv, hasDerivAt_const, deriv_const]
+
 /-- Partial derivative of constant function -/
-theorem partialDeriv_const {i : n} {x : n → 𝕜} (c : F) :
-    partialDeriv (fun _ => c) i x = 0 := by
+theorem partialDeriv_const {i : Fin n} {x : Euc 𝕜 n} (c : F) :
+    partialDeriv i (fun _ => c) x = 0 := by
   -- Unfold to line derivative
   simp only [partialDeriv]
   -- Use the fact that line derivative of constant is zero
-  exact lineDeriv_const 𝕜 c x (standardBasis i)
+  exact lineDeriv_const x (standardBasis i) c
 
 /-!
 # Differential Operators
@@ -142,20 +168,19 @@ This file defines the fundamental differential operators of vector calculus:
 
 /-- Gradient of a scalar function f: ℝⁿ → ℝ.
     ∇f = (∂f/∂x₁, ..., ∂f/∂xₙ) -/
-noncomputable def gradient {n : ℕ} (f : EuclideanSpace ℝ (Fin n) → ℝ)
-    (x : EuclideanSpace ℝ (Fin n)) : EuclideanSpace ℝ (Fin n) :=
-  fun i => partialDeriv f i x
+noncomputable def gradient (f : Euc 𝕜 n → 𝕜)
+    (x : Euc 𝕜 n) : Euc 𝕜 n :=
+  fun i => partialDeriv i f x
 
 /-- Divergence of a vector field F: ℝⁿ → ℝⁿ.
     ∇·F = ∑ᵢ ∂Fᵢ/∂xᵢ -/
-noncomputable def divergence {n : ℕ} (F : EuclideanSpace ℝ (Fin n) → EuclideanSpace ℝ (Fin n))
-    (x : EuclideanSpace ℝ (Fin n)) : ℝ :=
-  Finset.sum (Finset.univ : Finset (Fin n)) fun i =>
-    partialDeriv (fun y => F y i) i x
+noncomputable def divergence (F : Euc 𝕜 n → Euc 𝕜 n)
+    (x : Euc 𝕜 n) : 𝕜 :=
+  ∑ i : Fin n, (partialDeriv i F x) i
 
 /-- Cross product in ℝ³.
     a × b = (a₂b₃-a₃b₂, a₃b₁-a₁b₃, a₁b₂-a₂b₁) -/
-noncomputable def cross_product (a b : EuclideanSpace ℝ (Fin 3)) : EuclideanSpace ℝ (Fin 3) :=
+noncomputable def cross_product (a b : Euc 𝕜 3) : Euc 𝕜 3 :=
   fun i => match i with
   | ⟨0, _⟩ => a 1 * b 2 - a 2 * b 1
   | ⟨1, _⟩ => a 2 * b 0 - a 0 * b 2
@@ -163,39 +188,41 @@ noncomputable def cross_product (a b : EuclideanSpace ℝ (Fin 3)) : EuclideanSp
 
 /-- Curl of a vector field F: ℝ³ → ℝ³.
     ∇×F = (∂F₃/∂y - ∂F₂/∂z, ∂F₁/∂z - ∂F₃/∂x, ∂F₂/∂x - ∂F₁/∂y) -/
-noncomputable def curl (F : EuclideanSpace ℝ (Fin 3) → EuclideanSpace ℝ (Fin 3))
-    (x : EuclideanSpace ℝ (Fin 3)) : EuclideanSpace ℝ (Fin 3) :=
+noncomputable def curl (F : Euc 𝕜 3 → Euc 𝕜 3)
+    (x : Euc 𝕜 3) : Euc 𝕜 3 :=
   fun i => match i with
-  | ⟨0, _⟩ => partialDeriv (fun y => F y 2) 1 x - partialDeriv (fun y => F y 1) 2 x
-  | ⟨1, _⟩ => partialDeriv (fun y => F y 0) 2 x - partialDeriv (fun y => F y 2) 0 x
-  | ⟨2, _⟩ => partialDeriv (fun y => F y 1) 0 x - partialDeriv (fun y => F y 0) 1 x
-
-/-- Alternative definition of Laplacian using divergence of gradient.
-    Δf = ∇·∇f -/
-noncomputable def laplacian_alt {n : ℕ} (f : EuclideanSpace ℝ (Fin n) → ℝ)
-    (x : EuclideanSpace ℝ (Fin n)) : ℝ :=
-  divergence (gradient f) x
+  | ⟨0, _⟩ => partialDeriv 1 (fun y => F y 2) x - partialDeriv 2 (fun y => F y 1) x
+  | ⟨1, _⟩ => partialDeriv 2 (fun y => F y 0) x - partialDeriv 0 (fun y => F y 2) x
+  | ⟨2, _⟩ => partialDeriv 0 (fun y => F y 1) x - partialDeriv 1 (fun y => F y 0) x
 
 /-- Laplacian operator in n dimensions -/
-noncomputable def laplacian {n : ℕ}
-  (u : EuclideanSpace ℝ (Fin n) → ℝ)
-  (x : EuclideanSpace ℝ (Fin n)) : ℝ :=
-  Finset.sum (Finset.univ : Finset (Fin n))
-    (fun i => partialDeriv (fun y => partialDeriv u i y) i x)
+noncomputable def laplacian (f : Euc 𝕜 n → 𝕜)
+    (x : Euc 𝕜 n) : 𝕜 :=
+  ∑ i : Fin n, partialDeriv i (fun y => partialDeriv i f y) x
+
+/-- Alternative definition of Laplacian using divergence of gradient.
+Δf = ∇·∇f -/
+noncomputable def laplacian_alt (f : Euc 𝕜 n → 𝕜)
+    (x : Euc 𝕜 n) : 𝕜 :=
+  divergence (gradient f) x
+
 
 /-!
 # Proofs of Vector Calculus Identities
 -/
 
 /-- Gradient of sum is sum of gradients -/
-theorem gradient_sum {n : ℕ} (f g : EuclideanSpace ℝ (Fin n) → ℝ) (x : EuclideanSpace ℝ (Fin n)) :
+theorem gradient_sum {n : ℕ} (f g : Euc 𝕜 n → 𝕜) (x : Euc 𝕜 n) (hf : DifferentiableAt 𝕜 f x) (hg : DifferentiableAt 𝕜 g x) :
   gradient (fun y => f y + g y) x = fun i => gradient f x i + gradient g x i := by
   -- Unfold gradient definition
-  simp only [gradient]
+  unfold gradient
   -- Extensionality: enough to prove equality at each component i
   ext i
   -- Use linearity of partial derivatives
-  exact partialDeriv_add f g i x
+  have hf_linederiv := DifferentiableAt.lineDeriv hf
+  have hg_linederiv := DifferentiableAt.lineDeriv hg
+  have sum_linederiv := LineDifferentiableAt.add hf_linederiv hg_linederiv
+  exact HasDerivAt.deriv sum_linederiv
 
 /-- Divergence of sum is sum of divergences -/
 theorem divergence_sum {n : ℕ}
