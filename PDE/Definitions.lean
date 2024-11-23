@@ -10,7 +10,7 @@ import Mathlib.Analysis.InnerProductSpace.PiL2
 
 variable {𝕜 : Type*} [NontriviallyNormedField 𝕜]
 --variable {n : Type*} [Fintype n] [DecidableEq n]
-variable {n : ℕ}
+variable {n m : ℕ}
 variable {F : Type*} [NormedAddCommGroup F] [NormedSpace 𝕜 F]
 variable {E : Type*} [NormedAddCommGroup E] [NormedSpace 𝕜 E]
 
@@ -384,23 +384,9 @@ theorem laplacian_eq_laplacian_alt (f : Euc 𝕜 n → 𝕜) (x : Euc 𝕜 n) :
   sorry
 
 /-- Curl of gradient is zero -/
-theorem curl_gradient (f : EuclideanSpace ℝ (Fin 3) → ℝ) (x : EuclideanSpace ℝ (Fin 3)) :
+theorem curl_gradient (f : Euc ℝ 3 → ℝ) (x : Euc ℝ 3) :
   curl (gradient f) x = 0 := by
-  -- Unfold definitions
-  simp only [curl, gradient]
-  -- Extensionality
-  ext i
-  -- Case analysis on components
-  match i with
-  | ⟨0, _⟩ =>
-    -- Show ∂²f/∂y∂z = ∂²f/∂z∂y using commutativity of mixed partials
-    sorry
-  | ⟨1, _⟩ =>
-    -- Show ∂²f/∂z∂x = ∂²f/∂x∂z
-    sorry
-  | ⟨2, _⟩ =>
-    -- Show ∂²f/∂x∂y = ∂²f/∂y∂x
-    sorry
+  sorry -- TODO
 
 /-- Divergence of curl is zero -/
 theorem divergence_curl
@@ -528,7 +514,7 @@ noncomputable def laplace_equation (n : ℕ) : LinearPDE ℝ (EuclideanSpace ℝ
     Here we work in 2 dimensions, where the first coordinate is time -/
 noncomputable def heat_equation (n : ℕ) : LinearPDE ℝ (EuclideanSpace ℝ (Fin 2)) ℝ 2 1 where
   eqn := fun u x =>
-    partialDeriv u 0 x - laplacian (fun y => u y) x
+    partialDeriv 0 u x - laplacian (fun y => u y) x
   coeffs := fun α h =>
     if α.order = 1 && α.index 0 = 1 then fun _ => (1 : ℝ)
     else if α.order = 2 then fun _ => (-1 : ℝ)
@@ -540,36 +526,53 @@ noncomputable def heat_equation (n : ℕ) : LinearPDE ℝ (EuclideanSpace ℝ (F
 /-- Inviscid Burgers' equation: uₜ + uuₓ = 0 -/
 noncomputable def burgers_equation : FullyNonlinearPDE ℝ (EuclideanSpace ℝ (Fin 2)) ℝ 2 1 where
   eqn := fun u x =>
-    partialDeriv u 0 x + (u x) * (partialDeriv u 1 x)
+    partialDeriv 0 u x + (u x) * (partialDeriv 1 u x)
   domain := Set.univ
   is_fully_nonlinear := trivial
 
 /-- KdV equation: uₜ + uuₓ + uₓₓₓ = 0 -/
 noncomputable def kdv_equation : FullyNonlinearPDE ℝ (EuclideanSpace ℝ (Fin 2)) ℝ 2 3 where
   eqn := fun u x =>
-    partialDeriv u 0 x +
-    (u x) * (partialDeriv u 1 x) +
-    partialDeriv (fun y => partialDeriv (fun z => partialDeriv u 1 z) 1 y) 1 x
+    partialDeriv 0 u x +
+    (u x) * (partialDeriv 1 u x) +
+    partialDeriv 1 (fun y => partialDeriv 1 (fun z => partialDeriv 1 u z) y) x
   domain := Set.univ
   is_fully_nonlinear := trivial
 
-/-!
-# Transport Equation with Initial Value Problem
 
-This file formalizes the transport equation and its initial value problem:
-uₜ + b·∇u = 0 in ℝⁿ × (0,∞)
-u = g   on ℝⁿ × {t=0}
+/-- The type of operators in a PDE -/
+abbrev PDEOperator (𝕜 : Type*) [NontriviallyNormedField 𝕜]
+    (E : Type*) [NormedAddCommGroup E] [NormedSpace 𝕜 E]
+    (F : Type*) [NormedAddCommGroup F] [NormedSpace 𝕜 F]
+    (G : Type*) [NormedAddCommGroup G] [NormedSpace 𝕜 G] := (E → F) → E → G
 
-where b = (b₁,...,bₙ) is a fixed vector in ℝⁿ.
--/
+/-- A PDE equation of the form Pf(x) = g(x) -/
+structure PDEEquation (𝕜 : Type*) [NontriviallyNormedField 𝕜]
+    (E : Type*) [NormedAddCommGroup E] [NormedSpace 𝕜 E]
+    (F : Type*) [NormedAddCommGroup F] [NormedSpace 𝕜 F] where
+  /-- The output type -/
+  output : Type*
+  [output_normed_add_comm_group : NormedAddCommGroup output]
+  [output_normed_space : NormedSpace 𝕜 output]
+  /-- The operator -/
+  operator : PDEOperator 𝕜 E F output
+  /-- The right-hand side -/
+  rhs : E → output
+  /-- The domain -/
+  domain : Set E
 
-/-- The transport equation domain: ℝⁿ × (0,∞) -/
-def TransportDomain (n : ℕ) : Set (Euc ℝ (n+1)) :=
-  {x | 0 < x 0}  -- x₀ represents time t
+/-- A PDE problem is -/
+structure PDEProblem (𝕜 : Type*) [NontriviallyNormedField 𝕜]
+    (E : Type*) [NormedAddCommGroup E] [NormedSpace 𝕜 E]
+    (F : Type*) [NormedAddCommGroup F] [NormedSpace 𝕜 F] where
+  /-- The equations -/
+  eqns : List (PDEEquation 𝕜 E F)
+  /-- Initial conditions -/
+  initial_conditions : List (PDEEquation 𝕜 E F)
 
-/-- Initial data domain: ℝⁿ × {t=0} -/
-def InitialDomain (n : ℕ) : Set (Euc ℝ (n+1)) :=
-  {x | x 0 = 0}  -- x₀ represents time t
+/-- Satisfies a PDE problem -/
+def IsSolutionPDEProblem (pde : PDEProblem 𝕜 E F) (u : E → F) : Prop :=
+  ∀ eqn ∈ pde.eqns ++ pde.initial_conditions, ∀ x ∈ eqn.domain, eqn.operator u x = eqn.rhs x
 
 /-- Projection onto the time coordinate -/
 noncomputable def timeCoord (n : ℕ) : Euc ℝ (n+1) →L[ℝ] ℝ := euc_proj (n+1) 0
@@ -618,162 +621,3 @@ noncomputable def embed_with_time_zero (n : ℕ) : Euc ℝ n →L[ℝ] Euc ℝ (
 /-- Spatial gradient of a function (excluding time derivative) -/
 noncomputable def spatial_gradient {n : ℕ} (u : Euc ℝ (n+1) → ℝ)
     (x : Euc ℝ (n+1)) : Euc ℝ n := spatialCoord n (gradient u x)
-
-/-- The type of operators in a PDE -/
-abbrev PDEOperator (𝕜 : Type*) [NontriviallyNormedField 𝕜]
-    (E : Type*) [NormedAddCommGroup E] [NormedSpace 𝕜 E]
-    (F : Type*) [NormedAddCommGroup F] [NormedSpace 𝕜 F]
-    (G : Type*) [NormedAddCommGroup G] [NormedSpace 𝕜 G] := (E → F) → E → G
-
-/-- A PDE equation of the form Pf(x) = g(x) -/
-structure PDEEquation (𝕜 : Type*) [NontriviallyNormedField 𝕜]
-    (E : Type*) [NormedAddCommGroup E] [NormedSpace 𝕜 E]
-    (F : Type*) [NormedAddCommGroup F] [NormedSpace 𝕜 F] where
-  /-- The output type -/
-  output : Type*
-  [output_normed_add_comm_group : NormedAddCommGroup output]
-  [output_normed_space : NormedSpace 𝕜 output]
-  /-- The operator -/
-  operator : PDEOperator 𝕜 E F output
-  /-- The right-hand side -/
-  rhs : E → output
-  /-- The domain -/
-  domain : Set E
-
-/-- A PDE problem is -/
-structure PDEProblem (𝕜 : Type*) [NontriviallyNormedField 𝕜]
-    (E : Type*) [NormedAddCommGroup E] [NormedSpace 𝕜 E]
-    (F : Type*) [NormedAddCommGroup F] [NormedSpace 𝕜 F] where
-  /-- The equations -/
-  eqns : List (PDEEquation 𝕜 E F)
-  /-- Initial conditions -/
-  initial_conditions : List (PDEEquation 𝕜 E F)
-
-/-- Satisfies a PDE problem -/
-def IsSolutionPDEProblem (pde : PDEProblem 𝕜 E F) (u : E → F) : Prop :=
-  ∀ eqn ∈ pde.eqns ++ pde.initial_conditions, ∀ x ∈ eqn.domain, eqn.operator u x = eqn.rhs x
-
-/-- Initial value problem for transport equation -/
-noncomputable def transportIVP {n : ℕ} (b : Euc ℝ n) (g : Euc ℝ n → ℝ) (hg : ∀ x, DifferentiableAt ℝ g x) : PDEProblem ℝ (Euc ℝ (n+1)) ℝ where
-  eqns := [{
-    output := ℝ
-    operator := fun u x =>
-      partialDeriv 0 u x + inner (spatial_gradient u x) b
-    rhs := fun _ => 0
-    domain := TransportDomain n
-  }]
-  initial_conditions := [{
-    output := ℝ
-    operator := id
-    rhs := g ∘ spatialCoord n
-    domain := InitialDomain n
-  }]
-
-/-- The method of characteristics solution: u(x,t) = g(x - tb) -/
-noncomputable def transportSolution {n : ℕ} (b : Euc ℝ n) (g : Euc ℝ n → ℝ) :
-    Euc ℝ (n+1) → ℝ :=
-fun x => g (fun i => x (i + 1) - (x 0) * b i)
-
-/-- TransportSolution is a solution to the transport IVP -/
-theorem transportSolution_is_solution {n : ℕ} (b : Euc ℝ n) (g : Euc ℝ n → ℝ) (hg : ∀ x, DifferentiableAt ℝ g x) :
-  IsSolutionPDEProblem (transportIVP b g hg) (transportSolution b g) := by {
-  -- Unfold what it means to be a solution
-  unfold IsSolutionPDEProblem
-  -- Split into main equation and initial condition
-  intro eqn heqn x hx
-  simp at heqn
-  rcases heqn with (hpde | hinitial)
-
-  -- Case 1: The PDE equation
-    -- Simplify to show we have the transport equation
-  · simp [transportIVP] at hpde
-    -- Now have one equation, substitute it
-    subst hpde
-    -- This gives us the actual transport equation to prove
-    unfold transportSolution
-
-    -- Similar to original proof from here
-    let transport_linear_map : Euc ℝ (n+1) →L[ℝ] Euc ℝ n :=
-      spatialCoord n - (ContinuousLinearMap.smulRight (timeCoord n) b)
-
-    have hglinear : transportSolution b g = g ∘ transport_linear_map := by {
-      ext1 x
-      simp [transportSolution, transport_linear_map]
-      congr
-    }
-    have htime : partialDeriv 0 (transportSolution b g)
-      = fun x => -inner b (gradient g (transport_linear_map x)) := by {
-      ext1 x
-      rw [hglinear]
-      rw [partialDeriv_comp]
-      · rw [fderiv_eq_gradient_inner]
-        · have hdtTLM : partialDeriv 0 (transport_linear_map) x = -b := by {
-            rw [partialDeriv_eq_fderiv 0]
-            · rw [ContinuousLinearMap.fderiv]
-              ext i
-              simp [transport_linear_map, standardBasis]
-              simp [(Fin.succ_ne_zero i).symm]
-              simp [euc_proj, ContinuousLinearMap.proj, LinearMap.proj, standardBasis]
-            · exact ContinuousLinearMap.differentiableAt transport_linear_map
-          }
-          rw [hdtTLM]
-          simp
-        · apply hg
-      · apply partialDifferentiableAt_of_differentiableAt
-        exact ContinuousLinearMap.differentiableAt transport_linear_map
-      apply hg
-    }
-
-    have hspatial : spatial_gradient (transportSolution b g) = fun x =>
-      gradient g (transport_linear_map x) := by {
-      ext1 x
-      -- Proof that spatial gradient matches
-      unfold spatial_gradient
-      rw [hglinear]
-      rw [gradient_comp]
-      rw [ContinuousLinearMap.fderiv]
-      set v := gradient g (transport_linear_map x)
-      ext i
-      simp [transport_linear_map, standardBasis]
-      conv => {
-        lhs; enter [2, j]
-        rw [sub_mul]
-        simp
-        simp [euc_proj, ContinuousLinearMap.proj, LinearMap.proj, standardBasis]
-        simp [Fin.succ_ne_zero i]
-      }
-      simp
-      exact ContinuousLinearMap.differentiableAt transport_linear_map
-      apply hg
-    }
-
-    -- Combine the parts
-    simp
-    have htransportSln : transportSolution b g = fun x => g fun i => x (i + 1) - x 0 * b i := by {
-      ext y
-      simp [transportSolution]
-    }
-    rw [← htransportSln]
-    simp [htime, hspatial]
-    conv => {
-      lhs; enter [1,1,2,j]
-      rw [mul_comm]
-    }
-    simp
-
-  -- Case 2: The initial condition
-    -- Simplify to show we have the initial condition
-  · simp [transportIVP] at hinitial
-    -- Now have one equation, substitute it
-    subst hinitial
-    -- Need to show that at t=0, solution matches initial data
-    simp [transportSolution]
-    have h0 : x 0 = 0 := by {
-      -- Use the domain condition
-      simp [InitialDomain] at hx
-      exact hx
-    }
-    -- When t=0, x - tb = x, so we get g(x) as required
-    simp [h0, spatialCoord]
-}
-
