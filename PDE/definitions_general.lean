@@ -25,6 +25,14 @@ abbrev Euc 𝕜 n := EuclideanSpace 𝕜 (Fin n)
 /-- The standard basis vector in direction i for n-dimensional space. -/
 def standardBasis (i : Fin n) : Euc 𝕜 n := fun j => if i = j then 1 else 0
 
+/-- Any vector in Euclidean space is a sum of its basis components -/
+theorem euc_eq_sum_basis (b : Euc 𝕜 n) : b = ∑ i, b i • standardBasis i := by {
+  ext i
+  unfold standardBasis
+  rw [Finset.sum_apply]
+  simp
+}
+
 /-- Partial derivative of a function f at point x in direction i.
     Defined as the line derivative with respect to the standard basis vector eᵢ. -/
 noncomputable def partialDeriv (i : Fin n) (f : Euc 𝕜 n → F) (x : Euc 𝕜 n) : F :=
@@ -78,6 +86,11 @@ theorem lineDifferentiableAt_of_differentiableAt {f : E → F} {x : E}
   have hf_deriv := DifferentiableAt.hasFDerivAt hf
   have hf_lineDeriv := HasFDerivAt.hasLineDerivAt hf_deriv v
   exact HasLineDerivAt.lineDifferentiableAt hf_lineDeriv
+
+theorem partialDifferentiableAt_of_differentiableAt {f : Euc 𝕜 n → F} {i : Fin n} {x : Euc 𝕜 n}
+  (hf : DifferentiableAt 𝕜 f x) :
+  PartialDifferentiableAt i f x :=
+  lineDifferentiableAt_of_differentiableAt hf (standardBasis i)
 
 /-- Line derivative of a sum is the sum of line derivatives -/
 theorem lineDeriv_add (f g : E → F) (x v : E)
@@ -275,6 +288,47 @@ theorem gradient_sum (f g : Euc 𝕜 n → 𝕜) (x : Euc 𝕜 n) (hf : Differen
   have hf_linederiv := lineDifferentiableAt_of_differentiableAt hf (standardBasis i)
   have hg_linederiv := lineDifferentiableAt_of_differentiableAt hg (standardBasis i)
   exact partialDeriv_add hf_linederiv hg_linederiv
+
+
+/-- fderiv is inner product with gradient -/
+theorem fderiv_eq_gradient_inner {f : Euc ℝ n → ℝ} {x b : Euc ℝ n} (hf : DifferentiableAt ℝ f x) :
+  fderiv ℝ f x b = inner b (gradient f x) := by
+  unfold gradient
+  simp
+  rw [euc_eq_sum_basis b]
+  rw [map_sum]
+  congr
+  ext i
+  rw [partialDeriv_eq_fderiv i x hf]
+  simp
+  rw [Finset.sum_apply]
+  simp
+  left
+  unfold standardBasis
+  simp
+
+/-- Chain rule for gradient -/
+theorem gradient_comp {f : Euc ℝ n → Euc ℝ m} {g : Euc ℝ m → ℝ} {x : Euc ℝ n}
+  (hf : DifferentiableAt ℝ f x) (hg : DifferentiableAt ℝ g (f x)) :
+  gradient (g ∘ f) x = fun i => inner (fderiv ℝ f x (standardBasis i)) (gradient g (f x)) := by
+  ext i
+  simp only [gradient]
+  rw [partialDeriv_comp]
+  rw [← fderiv_eq_gradient_inner hg]
+  rw [partialDeriv_eq_fderiv i x hf]
+  exact partialDifferentiableAt_of_differentiableAt hf
+  exact hg
+
+/-- Inner product of gradient chain rule -/
+theorem inner_gradient_comp {f : Euc ℝ n → Euc ℝ m} {g : Euc ℝ m → ℝ} {x b : Euc ℝ n}
+  (hf : DifferentiableAt ℝ f x) (hg : DifferentiableAt ℝ g (f x)) :
+  (inner b (gradient (g ∘ f) x) : ℝ) = inner (fderiv ℝ f x b) (gradient g (f x)) := by
+  rw [← fderiv_eq_gradient_inner]
+  rw [← fderiv_eq_gradient_inner]
+  rw [fderiv_comp]
+  simp
+  assumption; assumption; assumption
+  exact DifferentiableAt.comp x hg hf
 
 /-- Divergence of sum is sum of divergences -/
 theorem divergence_sum (F G : Euc 𝕜 n → Euc 𝕜 n) (x : Euc 𝕜 n) (hf : DifferentiableAt 𝕜 F x) (hg : DifferentiableAt 𝕜 G x) :
@@ -520,6 +574,10 @@ def InitialDomain (n : ℕ) : Set (Euc ℝ (n+1)) :=
 /-- Projection onto the time coordinate -/
 noncomputable def timeCoord (n : ℕ) : Euc ℝ (n+1) →L[ℝ] ℝ := euc_proj (n+1) 0
 
+/-- Time coordinate is first coordinate -/
+@[simp]
+theorem timeCoord_is_first (n : ℕ) : timeCoord n = euc_proj (n+1) 0 := rfl
+
 /-- Projection onto the spatial coordinates -/
 noncomputable def spatialCoord (n : ℕ) : Euc ℝ (n+1) →L[ℝ] Euc ℝ n := {
   toFun := fun x => fun i => x (i + 1),
@@ -531,6 +589,10 @@ noncomputable def spatialCoord (n : ℕ) : Euc ℝ (n+1) →L[ℝ] Euc ℝ n := 
     simp
     apply continuous_apply (i + 1 : Fin (n+1))
 }
+
+/-- Spatial coordinate at index i -/
+@[simp]
+theorem spatialCoord_apply (n : ℕ) (i : Fin n) (x : Euc ℝ (n+1)) : spatialCoord n x i = x (i + 1) := rfl
 
 /-- Embedding of ℝⁿ into ℝⁿ⁺¹, with time coordinate 0 -/
 noncomputable def embed_with_time_zero (n : ℕ) : Euc ℝ n →L[ℝ] Euc ℝ (n+1) := {
@@ -592,7 +654,7 @@ def IsSolutionPDEProblem (pde : PDEProblem 𝕜 E F) (u : E → F) : Prop :=
   ∀ eqn ∈ pde.eqns ++ pde.initial_conditions, ∀ x ∈ eqn.domain, eqn.operator u x = eqn.rhs x
 
 /-- Initial value problem for transport equation -/
-noncomputable def transportIVP {n : ℕ} (b : Euc ℝ n) (g : Euc ℝ n → ℝ) : PDEProblem ℝ (Euc ℝ (n+1)) ℝ where
+noncomputable def transportIVP {n : ℕ} (b : Euc ℝ n) (g : Euc ℝ n → ℝ) (hg : ∀ x, DifferentiableAt ℝ g x) : PDEProblem ℝ (Euc ℝ (n+1)) ℝ where
   eqns := [{
     output := ℝ
     operator := fun u x =>
@@ -613,9 +675,8 @@ noncomputable def transportSolution {n : ℕ} (b : Euc ℝ n) (g : Euc ℝ n →
 fun x => g (fun i => x (i + 1) - (x 0) * b i)
 
 /-- TransportSolution is a solution to the transport IVP -/
-theorem transportSolution_is_solution {n : ℕ} (b : Euc ℝ n) (g : Euc ℝ n → ℝ) :
-  IsSolutionPDEProblem (transportIVP b g) (transportSolution b g) := by {
-    -- TODO: prove
+theorem transportSolution_is_solution {n : ℕ} (b : Euc ℝ n) (g : Euc ℝ n → ℝ) (hg : ∀ x, DifferentiableAt ℝ g x) :
+  IsSolutionPDEProblem (transportIVP b g hg) (transportSolution b g) := by {
   -- Unfold what it means to be a solution
   unfold IsSolutionPDEProblem
   -- Split into main equation and initial condition
@@ -635,25 +696,70 @@ theorem transportSolution_is_solution {n : ℕ} (b : Euc ℝ n) (g : Euc ℝ n �
     let transport_linear_map : Euc ℝ (n+1) →L[ℝ] Euc ℝ n :=
       spatialCoord n - (ContinuousLinearMap.smulRight (timeCoord n) b)
 
+    have hglinear : transportSolution b g = g ∘ transport_linear_map := by {
+      ext1 x
+      simp [transportSolution, transport_linear_map]
+      congr
+    }
     have htime : partialDeriv 0 (transportSolution b g)
       = fun x => -inner b (gradient g (transport_linear_map x)) := by {
       ext1 x
-      apply partialDeriv_eq_of_hasPartialDerivAt
-      -- Chain rule application similar to original proof
-      sorry  -- Details omitted for brevity
+      rw [hglinear]
+      rw [partialDeriv_comp]
+      · rw [fderiv_eq_gradient_inner]
+        · have hdtTLM : partialDeriv 0 (transport_linear_map) x = -b := by {
+            rw [partialDeriv_eq_fderiv 0]
+            · rw [ContinuousLinearMap.fderiv]
+              ext i
+              simp [transport_linear_map, standardBasis]
+              simp [(Fin.succ_ne_zero i).symm]
+              simp [euc_proj, ContinuousLinearMap.proj, LinearMap.proj, standardBasis]
+            · exact ContinuousLinearMap.differentiableAt transport_linear_map
+          }
+          rw [hdtTLM]
+          simp
+        · apply hg
+      · apply partialDifferentiableAt_of_differentiableAt
+        exact ContinuousLinearMap.differentiableAt transport_linear_map
+      apply hg
     }
 
     have hspatial : spatial_gradient (transportSolution b g) = fun x =>
       gradient g (transport_linear_map x) := by {
       ext1 x
       -- Proof that spatial gradient matches
-      sorry  -- Details omitted for brevity
+      unfold spatial_gradient
+      rw [hglinear]
+      rw [gradient_comp]
+      rw [ContinuousLinearMap.fderiv]
+      set v := gradient g (transport_linear_map x)
+      ext i
+      simp [transport_linear_map, standardBasis]
+      conv => {
+        lhs; enter [2, j]
+        rw [sub_mul]
+        simp
+        simp [euc_proj, ContinuousLinearMap.proj, LinearMap.proj, standardBasis]
+        simp [Fin.succ_ne_zero i]
+      }
+      simp
+      exact ContinuousLinearMap.differentiableAt transport_linear_map
+      apply hg
     }
 
     -- Combine the parts
+    simp
+    have htransportSln : transportSolution b g = fun x => g fun i => x (i + 1) - x 0 * b i := by {
+      ext y
+      simp [transportSolution]
+    }
+    rw [← htransportSln]
     simp [htime, hspatial]
-    -- Final computation showing terms cancel
-    sorry  -- Complete the computation
+    conv => {
+      lhs; enter [1,1,2,j]
+      rw [mul_comm]
+    }
+    simp
 
   -- Case 2: The initial condition
     -- Simplify to show we have the initial condition
@@ -668,36 +774,6 @@ theorem transportSolution_is_solution {n : ℕ} (b : Euc ℝ n) (g : Euc ℝ n �
       exact hx
     }
     -- When t=0, x - tb = x, so we get g(x) as required
-    simp [h0]
-    ext1 i
-    simp
-    -- Show that spatialCoord extracts spatial components correctly
-    sorry  -- Complete the computation
+    simp [h0, spatialCoord]
 }
 
-/-- Solution to transport equation is a function that satisfies both the PDE and initial condition -/
-def IsSolutionTransportIVP {n : ℕ} (b : Euc ℝ n) (g : Euc ℝ n → ℝ)
-    (u : Euc ℝ (n+1) → ℝ) : Prop :=
-  (∀ x ∈ TransportDomain n, homogeneous_transport_equation n b u x = 0) ∧  -- Satisfies PDE
-  (∀ x ∈ InitialDomain n, u x = g (spatialCoord n x))  -- Satisfies initial condition
-
-
-/-- The transport solution satisfies the transport equation -/
-theorem transport_solution_satisfies_pde {n : ℕ} (ivp : TransportIVP n) :
-  ∀ x ∈ TransportDomain n, (ivp.pde.eqn (transport_solution ivp) x) = 0 := by
-  intro x hx
-  unfold transport_solution
-  have asdf : ivp.pde = homogeneous_transport_equation n ivp.b := by {
-
-      unfold TransportIVP.pde
-      unfold homogeneous_transport_equation
-    }
-  simp only [asdf]
-  unfold homogeneous_transport_equation
-  simp
-
-/-- The transport solution satisfies the initial condition -/
-theorem transport_solution_satisfies_ic {n : ℕ} (ivp : TransportIVP n) :
-  ∀ x ∈ InitialDomain n, transport_solution ivp x = ivp.g
-    (fun i => x ⟨i.val + 1, by simp; exact Nat.lt_succ_self _⟩) :=
-sorry  -- Proof would go here
