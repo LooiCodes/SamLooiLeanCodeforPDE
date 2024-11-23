@@ -44,6 +44,21 @@ theorem partialDifferentiableAt_iff_exists_partialDeriv
 ⟨fun h => ⟨partialDeriv f i x, LineDifferentiableAt.hasLineDerivAt h⟩,
  fun ⟨f', h⟩ => HasLineDerivAt.lineDifferentiableAt h⟩
 
+--Here is an alternate proof which is easy to read 
+/-- Partial differentiability implies existence of partial derivative -/
+theorem partialDifferentiableAt_iff_exists_partialDeriv
+  {f : (n → 𝕜) → F} {i : n} {x : n → 𝕜} :
+  PartialDifferentiableAt f i x ↔ ∃ f', HasPartialDerivAt f f' i x :=
+  -- This code uses the `split` tactic to split the current goal into multiple subgoals.
+  -- It then introduces a hypothesis `h` for each subgoal.
+  by
+  constructor
+  · intro h
+    exists (partialDeriv f i x)
+    apply LineDifferentiableAt.hasLineDerivAt h
+  · intro ⟨f', h⟩
+    apply HasLineDerivAt.lineDifferentiableAt h
+
 /-- Uniqueness of partial derivatives when they exist -/
 theorem hasPartialDerivAt.unique
   {f : (n → 𝕜) → F} {f₁' f₂' : F} {i : n} {x : n → 𝕜}

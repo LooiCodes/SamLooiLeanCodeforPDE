@@ -330,7 +330,6 @@ theorem inner_gradient_comp {f : Euc ℝ n → Euc ℝ m} {g : Euc ℝ m → ℝ
   assumption; assumption; assumption
   exact DifferentiableAt.comp x hg hf
 
-
 /-- Divergence of sum is sum of divergences -/
 theorem divergence_sum (F G : Euc 𝕜 n → Euc 𝕜 n) (x : Euc 𝕜 n) (hf : DifferentiableAt 𝕜 F x) (hg : DifferentiableAt 𝕜 G x) :
   divergence (F + G) x = divergence F x + divergence G x := by
@@ -777,3 +776,4 @@ theorem transportSolution_is_solution {n : ℕ} (b : Euc ℝ n) (g : Euc ℝ n �
     -- When t=0, x - tb = x, so we get g(x) as required
     simp [h0, spatialCoord]
 }
+
