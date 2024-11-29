@@ -55,11 +55,13 @@ def HolderWith (n:  ℕ) (C r : ℝ≥0) (f : X n → Y) : Prop :=
 noncomputable def normC0 (n : ℕ)
   (f : X n → ℝ) : ℝ :=
   ⨆ x : X n, ‖f x‖
+/-- there is a problem with this: a continuous function on Rn needn’t be bounded -/
 
 /-- The γ-Hölder seminorm u_{C^{0,γ}} of a function -/
 noncomputable def holderSeminorm (n : ℕ)
   (γ : ℝ≥0) (f : X n → ℝ) : ℝ :=
   ⨆ x: X n, ⨆ y : X n, ⨆ (h : x ≠ y), (‖f (x) - f (y)‖) / (rpow ‖x - y‖ γ)
+/-- This is not the correct definition of a holder seminorm -/
 
 /-- The complete γ-Hölder norm ‖u‖_{C^{0,γ}} combining C⁰ norm and Hölder seminorm -/
 noncomputable def holderNorm (n : ℕ)
@@ -72,6 +74,8 @@ structure Space (n k : ℕ) (C γ : ℝ≥0) :=
 (to_fun : X n → ℝ)
 (diff_k : ContDiff ℝ k to_fun)  -- k-times continuously differentiable
 (holder_k : ∀ (α : ℕ) (hα : α ≤ k), HolderWith n C γ (deriv^[α] to_fun))  -- all derivatives up to k are Hölder continuous
+
+/--for above and below : deriv^[ ] doesn’t exist to my knowledge but it also has not been defined -/
 
 /-- The norm on the Hölder space -/
 noncomputable def spaceNorm (n k : ℕ) (C γ : ℝ≥0) (f : ) : ℝ :=
