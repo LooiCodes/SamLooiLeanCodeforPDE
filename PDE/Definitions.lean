@@ -207,6 +207,77 @@ theorem partialDeriv_coord {i : Fin n} {j : Fin m} {f : Euc 𝕜 n → Euc 𝕜 
   rw [←hcomp]
   congr
 
+theorem sup_norm_le_euc_norm {v : Euc ℝ n} :
+  ‖fun i : Fin n => v i‖ ≤ ‖v‖ := by
+  sorry
+  rw [EuclideanSpace.norm_eq]
+  refine Real.iSup_le ?hf ?ha
+  intro i
+  rw [Real.le_sqrt]
+  · set f := fun j => ‖v j‖ ^ 2 with hf
+    rw [show ‖v i‖ ^ 2 = f i from rfl]
+    apply Finset.single_le_sum
+    intro j hj
+    simp [hf]
+    exact sq_nonneg (v j)
+    simp
+  · exact norm_nonneg (v i)
+  · apply Fintype.sum_nonneg
+    intro j
+    simp
+    exact sq_nonneg (v j)
+  · apply Real.sqrt_nonneg
+
+
+theorem euc_norm_le_sqrt_n_sup_norm {v : Euc ℝ n} :
+  ‖v‖ ≤ √n * ‖fun i:Fin n => v i‖ := by
+  sorry
+  rw [show √n * ⨆ i, ‖v i‖ = √(n * ⨆ i, ‖v i‖^2) from by {
+    simp
+    left
+    sorry
+  }]
+  rw [EuclideanSpace.norm_eq]
+  apply Real.sqrt_le_sqrt
+  simp
+  sorry
+
+theorem euc_norm_isTheta_sup_norm {v : Euc ℝ n} :
+  ‖v‖ =Θ[nhds ] √n * ⨆ i, ‖v i‖ := by
+  sorry
+
+theorem hasDerivAt_pi_euc {φ : ℝ → Euc ℝ n} {φ' : Euc ℝ n} {x : ℝ} :
+    HasDerivAt φ φ' x ↔ ∀ i, HasDerivAt (fun x => φ x i) (φ' i) x := by
+  let f := fun x i => φ x i
+  simp [hasDerivAt_iff_isLittleO]
+  rw [←Asymptotics.isLittleO_pi]
+  constructor <;> intro h
+  · apply Asymptotics.IsBigO.trans_isLittleO ?_ h
+    apply Asymptotics.isBigO_of_le
+    intro y
+    set v := φ y - φ x - (y - x) • φ' with hv; clear_value v
+    have hvi (i : Fin n) : v i = φ y i - φ x i - (y - x) * φ' i := by {
+      sorry
+    }
+    conv => {
+      lhs; enter [1,i]
+      rw [← hvi i]
+    }
+    apply sup_norm_le_euc_norm
+  · apply Asymptotics.IsBigO.trans_isLittleO ?_ h
+    apply Asymptotics.isBigO_of_le' (c:= √n)
+    intro y
+    set v := φ y - φ x - (y - x) • φ' with hv; clear_value v
+    have hvi (i : Fin n) : v i = φ y i - φ x i - (y - x) * φ' i := by {
+      sorry
+    }
+    conv => {
+      rhs; enter [2,1,i]
+      rw [← hvi i]
+    }
+    apply euc_norm_le_sqrt_n_sup_norm
+
+
 
 /-!
 # Differential Operators
@@ -616,6 +687,24 @@ noncomputable def embed_with_time_zero (n : ℕ) : Euc ℝ n →L[ℝ] Euc ℝ (
       apply continuous_const
     · simp [h]
       apply continuous_apply (i.pred h)
+}
+
+/-- Embedding with time coordinate 0 has time coordinate 0 -/
+@[simp]
+theorem embed_with_time_zero_apply_zero (n : ℕ) (x : Euc ℝ n) : (embed_with_time_zero n x) 0 = 0 := by {
+  simp [embed_with_time_zero]
+}
+
+/-- Embedding with time coordinate 0 has coord i equal to coord i-1 for i > 0 -/
+@[simp]
+theorem embed_with_time_zero_apply_succ (n : ℕ) (i : Fin n) (x : Euc ℝ n) : (embed_with_time_zero n x) (i.succ) = x i := by {
+  simp [embed_with_time_zero, Fin.succ_ne_zero]
+  rw [Fin.pred_succ i]
+}
+
+@[simp]
+theorem embed_with_time_zero_apply_of_ne_zero (n : ℕ) (i : Fin (n+1)) (x : Euc ℝ n) (hi : i ≠ 0) : (embed_with_time_zero n x) i = x (i.pred hi) := by {
+  simp [embed_with_time_zero, hi]
 }
 
 /-- Spatial gradient of a function (excluding time derivative) -/
