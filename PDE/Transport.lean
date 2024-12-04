@@ -10,6 +10,7 @@ import Mathlib.Data.Real.Basic
 import Mathlib.Analysis.InnerProductSpace.PiL2
 import Mathlib.Analysis.Asymptotics.Asymptotics
 import Mathlib.Analysis.Calculus.MeanValue
+import Mathlib.MeasureTheory.Integral.IntervalIntegral
 import PDE.Definitions
 
 variable {𝕜 : Type*} [NontriviallyNormedField 𝕜]
@@ -329,4 +330,74 @@ theorem transport_solution_is_transportFunction {n : ℕ} (b : Euc ℝ n) (g : E
     simp
   simp
   exact hx
+}
+
+/-! Nonhomogeneous transport equation -/
+
+/-- Initial value problem for transport equation -/
+noncomputable def transportNonhomogeneousIVP {n : ℕ} (b : Euc ℝ n) (f : Euc ℝ (n+1) → ℝ) (g : Euc ℝ n → ℝ) (hf : ∀ x, DifferentiableAt ℝ f x) (hg : ∀ x, DifferentiableAt ℝ g x) :
+  PDEProblem ℝ (Euc ℝ (n+1)) ℝ where
+  eqns := [{
+    output := ℝ
+    operator := fun u x =>
+      partialDeriv 0 u x + inner (spatial_gradient u x) b
+    rhs := f
+    domain := TransportDomain n
+  }]
+  initial_conditions := [{
+    output := ℝ
+    operator := id
+    rhs := g ∘ spatialCoord n
+    domain := InitialDomain n
+  }]
+
+/-- The method of characteristics solution: u(t,x) = g(x - tb) + ∫ s from 0 to t of f(s, x + (s - t)b) -/
+noncomputable def transportNonhomogeneousFunction {n : ℕ} (b : Euc ℝ n) (f : Euc ℝ (n+1) → ℝ) (g : Euc ℝ n → ℝ) :
+    Euc ℝ (n+1) → ℝ :=
+  let y (x : Euc ℝ (n+1)) (s : ℝ) : Euc ℝ (n+1) :=
+    fun i => if h : i = 0 then s
+    else x i + (s - x 0) * b (i.pred h)
+  fun x => g (fun i => x (i + 1) - (x 0) * b i) + ∫ s in (0)..(x 0), f (y x s)
+
+theorem isSolutionPDEProblem_transportNonhomogeneous_unfold {n : ℕ} {b : Euc ℝ n} {f : Euc ℝ (n+1) → ℝ} {g : Euc ℝ n → ℝ}
+    {hf : ∀ x, DifferentiableAt ℝ f x} {hg : ∀ x, DifferentiableAt ℝ g x} {u : Euc ℝ (n+1) → ℝ}
+    {hu : ∀ x, DifferentiableAt ℝ u x}
+    (hsln : IsSolutionPDEProblem (transportNonhomogeneousIVP b f g hf hg) u) :
+    (∀ x ∈ TransportDomain n, partialDeriv 0 u x + inner (spatial_gradient u x) b = f x) ∧
+    ∀ x ∈ InitialDomain n, u x = g ((spatialCoord n) x) := by {
+  unfold IsSolutionPDEProblem at hsln
+  simp at hsln
+  simp [transportNonhomogeneousIVP] at hsln
+  assumption
+}
+
+theorem solution_is_sum_of_homogeneous_and_integral {n : ℕ} (b : Euc ℝ n) (f : Euc ℝ (n+1) → ℝ) (g : Euc ℝ n → ℝ) (hf : ∀ x, DifferentiableAt ℝ f x) (hg : ∀ x, DifferentiableAt ℝ g x) (u1 u2 u : Euc ℝ (n+1) → ℝ) (hu1 : ∀ x, DifferentiableAt ℝ u1 x) (hu2 : ∀ x, DifferentiableAt ℝ u2 x) (hu : ∀ x, DifferentiableAt ℝ u x)
+  (hsln1 : IsSolutionPDEProblem (transportNonhomogeneousIVP b f 0 hf (by {
+    intro x; exact differentiableAt_const 0
+  })) u1)
+  (hsln2 : IsSolutionPDEProblem (transportNonhomogeneousIVP b 0 g (by {
+    intro x; exact differentiableAt_const 0
+  }) hg) u2)
+  (hsln  : IsSolutionPDEProblem (transportNonhomogeneousIVP b f g hf hg) u):
+  ∀ x ∈ TransportDomain n, u x = u1 x + u2 x := by {
+  intro x hx
+  have hsln1pde := isSolutionPDEProblem_transportNonhomogeneous_unfold (hu:=hu1) (hg:=?_) hsln1
+  obtain ⟨hsln1pde, hsln1init⟩ := hsln1pde
+  clear hsln1
+  have hsln2pde := isSolutionPDEProblem_transportNonhomogeneous_unfold (hu:=hu2) hsln2
+  obtain ⟨hsln2pde, hsln2init⟩ := hsln2pde
+  clear hsln2
+  have hslnpde := isSolutionPDEProblem_transportNonhomogeneous_unfold (hu:=hu) hsln
+  obtain ⟨hslnpde, hslninit⟩ := hslnpde
+  clear hsln
+  set u' := u - u2 with hu'; clear_value u'
+  have hsln'pde : ∀ x ∈ TransportDomain n, partialDeriv 0 u' x + inner (spatial_gradient u' x) b = f x := by {
+    intro x hx
+    specialize hslnpde x hx
+    specialize hsln1pde x hx
+    rw [hu']
+    sorry
+  }
+  sorry
+  sorry
 }
