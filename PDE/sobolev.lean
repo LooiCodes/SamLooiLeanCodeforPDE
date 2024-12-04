@@ -51,17 +51,15 @@ abbrev X n := Euc ℝ n
 def HolderWith (n:  ℕ) (C r : ℝ≥0) (f : X n → Y) : Prop :=
   ∀ x y, edist (f x) (f y) ≤ (C : ℝ≥0∞) * edist x y ^ (r : ℝ)
 
-/-- The C⁰ norm (supremum norm) of a bounded continuous function -/
+/-- The C⁰ norm (supremum norm) of a continuous function -/
 noncomputable def normC0 (n : ℕ)
   (f : X n → ℝ) : ℝ :=
   ⨆ x : X n, ‖f x‖
-/-- there is a problem with this: a continuous function on Rn needn’t be bounded -/
 
 /-- The γ-Hölder seminorm u_{C^{0,γ}} of a function -/
 noncomputable def holderSeminorm (n : ℕ)
   (γ : ℝ≥0) (f : X n → ℝ) : ℝ :=
   ⨆ x: X n, ⨆ y : X n, ⨆ (h : x ≠ y), (‖f (x) - f (y)‖) / (rpow ‖x - y‖ γ)
-/-- This is not the correct definition of a holder seminorm -/
 
 /-- The complete γ-Hölder norm ‖u‖_{C^{0,γ}} combining C⁰ norm and Hölder seminorm -/
 noncomputable def holderNorm (n : ℕ)
