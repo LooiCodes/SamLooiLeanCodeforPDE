@@ -68,10 +68,12 @@ noncomputable def holderNorm (n : ℕ)
 
 /-- The Hölder space C^{k,γ}(U) consists of k-times continuously differentiable functions
     whose k-th derivatives are Hölder continuous with exponent γ -/
-structure Space (n k : ℕ) (C γ : ℝ≥0) :=
+structure Space (n k : ℕ) (C γ : ℝ≥0) where
 (to_fun : X n → ℝ)
 (diff_k : ContDiff ℝ k to_fun)  -- k-times continuously differentiable
 (holder_k : ∀ (α : ℕ) (hα : α ≤ k), HolderWith n C γ (deriv^[α] to_fun))  -- all derivatives up to k are Hölder continuous
+
+/--for above and below : deriv^[ ] doesn’t exist to my knowledge but it also has not been defined -/
 
 /-- The norm on the Hölder space -/
 noncomputable def spaceNorm (n k : ℕ) (C γ : ℝ≥0) (f : ) : ℝ :=

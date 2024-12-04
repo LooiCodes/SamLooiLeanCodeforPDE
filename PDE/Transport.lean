@@ -9,6 +9,7 @@ import Mathlib.LinearAlgebra.Basis.Defs
 import Mathlib.Data.Real.Basic
 import Mathlib.Analysis.InnerProductSpace.PiL2
 import Mathlib.Analysis.Asymptotics.Asymptotics
+import Mathlib.Analysis.Calculus.MeanValue
 import PDE.Definitions
 
 variable {𝕜 : Type*} [NontriviallyNormedField 𝕜]
@@ -35,7 +36,8 @@ where b = (b₁,...,bₙ) is a fixed vector in ℝⁿ.
 
 /-- The transport equation domain: ℝⁿ × (0,∞) -/
 def TransportDomain (n : ℕ) : Set (Euc ℝ (n+1)) :=
-  {x | 0 < x 0}  -- x₀ represents time t
+  -- TODO: Change to (0,∞)
+  {x | 0 ≤ x 0}  -- x₀ represents time t
 
 /-- Initial data domain: ℝⁿ × {t=0} -/
 def InitialDomain (n : ℕ) : Set (Euc ℝ (n+1)) :=
@@ -88,6 +90,8 @@ theorem transportFunction_is_solution {n : ℕ} (b : Euc ℝ n) (g : Euc ℝ n �
       ext1 x
       simp [transportFunction, transport_linear_map]
       congr
+      ext i
+      simp
     }
     have htime : partialDeriv 0 (transportFunction b g)
       = fun x => -inner b (gradient g (transport_linear_map x)) := by {
@@ -99,9 +103,7 @@ theorem transportFunction_is_solution {n : ℕ} (b : Euc ℝ n) (g : Euc ℝ n �
             rw [partialDeriv_eq_fderiv 0]
             · rw [ContinuousLinearMap.fderiv]
               ext i
-              simp [transport_linear_map, standardBasis]
-              simp [(Fin.succ_ne_zero i).symm]
-              simp [euc_proj, ContinuousLinearMap.proj, LinearMap.proj, standardBasis]
+              simp [transport_linear_map]
             · exact ContinuousLinearMap.differentiableAt transport_linear_map
           }
           rw [hdtTLM]
@@ -122,31 +124,20 @@ theorem transportFunction_is_solution {n : ℕ} (b : Euc ℝ n) (g : Euc ℝ n �
       rw [ContinuousLinearMap.fderiv]
       set v := gradient g (transport_linear_map x)
       ext i
-      simp [transport_linear_map, standardBasis]
-      conv => {
-        lhs; enter [2, j]
-        rw [sub_mul]
-        simp
-        simp [euc_proj, ContinuousLinearMap.proj, LinearMap.proj, standardBasis]
-        simp [Fin.succ_ne_zero i]
-      }
+      simp [transport_linear_map]
       simp
-      exact ContinuousLinearMap.differentiableAt transport_linear_map
-      apply hg
+      exact hg (transport_linear_map x)
     }
 
     -- Combine the parts
     simp
-    have htransportSln : transportFunction b g = fun x => g fun i => x (i + 1) - x 0 * b i := by {
+    have htransportSln : transportFunction b g = fun x => g fun i => x (i.succ) - x 0 * b i := by {
       ext y
       simp [transportFunction]
     }
     rw [← htransportSln]
     simp [htime, hspatial]
-    conv => {
-      lhs; enter [1,1,2,j]
-      rw [mul_comm]
-    }
+    rw [AdjointSpace.real_inner_comm]
     simp
 
   -- Case 2: The initial condition
@@ -165,106 +156,177 @@ theorem transportFunction_is_solution {n : ℕ} (b : Euc ℝ n) (g : Euc ℝ n �
     simp [h0, spatialCoord]
 }
 
-#check Asymptotics.IsLittleO
+theorem transportIVP_eqns {n : ℕ} (b : Euc ℝ n) (g : Euc ℝ n → ℝ) (hg : ∀ x, DifferentiableAt ℝ g x) :
+  (transportIVP b g hg).eqns = [{
+    output := ℝ
+    operator := fun u x => partialDeriv 0 u x + inner (spatial_gradient u x) b
+    rhs := fun _ => 0
+    domain := TransportDomain n
+  }] := by {
+  simp [transportIVP]
+}
 
-theorem hasDerivAt_euc_iff_fin {φ : ℝ → Euc ℝ n} {φ' : Euc ℝ n} {x : ℝ} :
-    HasDerivAt φ φ' x ↔ HasDerivAt (fun x i => φ x i) (fun i => φ' i) x := by
-  unfold HasDerivAt HasDerivAtFilter
-  simp only [hasFDerivAtFilter_iff_isLittleO]
-  simp
-  simp_rw [Asymptotics.isLittleO_pi]
-
-  simp_rw [fderiv_pi_apply]
-  simp
-  convert Asymptotics.isLittleO_pi
-  apply?
-  simp only [ContinuousLinearMap.coe_pi]
+theorem isSolutionPDEProblem_transport_unfold {n : ℕ} {b : Euc ℝ n} {g : Euc ℝ n → ℝ}
+    {hg : ∀ x, DifferentiableAt ℝ g x} {u : Euc ℝ (n+1) → ℝ}
+    {hu : ∀ x, DifferentiableAt ℝ u x}
+    (hsln : IsSolutionPDEProblem (transportIVP b g hg) u) :
+    (∀ x ∈ TransportDomain n, partialDeriv 0 u x + inner (spatial_gradient u x) b = 0) ∧
+    ∀ x ∈ InitialDomain n, u x = g ((spatialCoord n) x) := by {
+  unfold IsSolutionPDEProblem at hsln
+  simp at hsln
+  simp [transportIVP] at hsln
+  assumption
+}
 
 /-- A solution to the transport IVP is transportFunction -/
 theorem transport_solution_is_transportFunction {n : ℕ} (b : Euc ℝ n) (g : Euc ℝ n → ℝ)
     (hg : ∀ x, DifferentiableAt ℝ g x) (u : Euc ℝ (n+1) → ℝ)
     (hu : ∀ x, DifferentiableAt ℝ u x)
     (hsln : IsSolutionPDEProblem (transportIVP b g hg) u) :
-    u = transportFunction b g := by {
+    ∀ x ∈ TransportDomain n, u x = transportFunction b g x := by {
   -- Step 1: Setup - show equality by showing they match at arbitrary point
-  ext x
+  intro x hx
 
   -- Characteristic curve (for all t ≥ 0)
   -- γ(s) = (s, x + (s - t)b)
-  let γ : ℝ → Euc ℝ (n+1) := fun s =>
-    fun i => if h : i = 0 then s else x (i) + (s - x 0) * b (i.pred h)
-  let b1 : Euc ℝ (n+1) := fun i => if h : i = 0 then 1 else b (i.pred h)
+  set γ : ℝ → Euc ℝ (n+1) := fun s =>
+    fun i => if h : i = 0 then s else x (i) + (s - x 0) * b (i.pred h) with hγ; clear_value γ
+  set b1 : Euc ℝ (n+1) := fun i => if h : i = 0 then 1 else b (i.pred h) with hb1; clear_value b1
   let γlinear : ℝ →L[ℝ] Euc ℝ (n+1) :=
     ContinuousLinearMap.smulRight (ContinuousLinearMap.id ℝ ℝ) b1
 
   -- Derivative of γ(s) is (1, b)
   have hγhasDerivAt : ∀ s, HasDerivAt γ (fun i => if h : i = 0 then 1 else b (i.pred h)) s := by {
     intro s
-    -- For each coordinate i, show the derivative exists
-    ext i
-    -- Case split on whether i = 0 (time coordinate) or not
+    rw [hasDerivAt_pi]
+    intro i
+    simp [hγ]
     by_cases hi : i = 0
-    · -- Case i = 0: time coordinate
-      simp [γ, hi]
-      -- The derivative is 1 since γ₀(s) = s
+    · simp [hi]
       exact hasDerivAt_id s
-    · -- Case i ≠ 0: spatial coordinate
-      simp [γ, hi]
-      -- Square both sides
-      rw [sq_eq_sq]
-      -- The derivative is b_i since γᵢ(s) = xᵢ + (s-t)bᵢ
-      -- Use linearity of derivative
-      have h_deriv := hasDerivAt_const (x i)
-      have h_mul := hasDerivAt_mul_const (s - x 0) (b (i.pred hi))
-      exact hasDerivAt_add h_deriv h_mul
+    · simp [hi]
+      conv => {
+        enter [1,y]
+        rw [sub_mul]
+      }
+      apply HasDerivAt.const_add
+      apply HasDerivAt.add_const
+      apply hasDerivAt_mul_const
   }
 
-  -- Define h(s) = u(γ(s))
-  let h := fun s => u (γ s)
-
-  -- Show h is differentiable (needs detailed proof)
-  have hdiff : ∀ s, DifferentiableAt ℝ h s := by {
-    sorry
+  have hγdiff : ∀ s, DifferentiableAt ℝ γ s := by {
+    intro s
+    exact HasFDerivAt.differentiableAt (hγhasDerivAt s)
   }
 
-  -- Show h'(s) = 0 using PDE equation
-  have hderiv : ∀ s, deriv h s = 0 := by {
-    sorry
+  -- Define f(s) = u(γ(s))
+  set f := fun s => u (γ s) with hf; clear_value f
+
+  -- Show f is differentiable
+  have hfdiff : ∀ s, DifferentiableAt ℝ f s := by {
+    rw [hf]
+    intro s
+    apply DifferentiableAt.comp
+    apply hu
+    apply hγdiff
+  }
+
+  have hpde1 : ∀ x ∈ TransportDomain n, partialDeriv 0 u x + inner (spatial_gradient u x) b = 0 := by {
+    exact (isSolutionPDEProblem_transport_unfold (hu:=hu) hsln).left
+  }
+  have hpde2 : ∀ x ∈ InitialDomain n, u x = g ((spatialCoord n) x) := by {
+    exact (isSolutionPDEProblem_transport_unfold (hu:=hu) hsln).right
+  }
+  clear hsln
+  -- Show f'(s) = 0 using PDE equation
+  have hfderiv : ∀ s ≥ 0, deriv f s = 0 := by {
+    intro s hs
+    rw [hf]
+    rw [←fderiv_deriv]
+    rw [show (fun t => u (γ t)) = u ∘ γ from by {
+      ext t; simp
+    }]
+    rw [fderiv_comp s]
+    simp
+    rw [fderiv_eq_gradient_inner]
+    rw [inner_split_time_space]
+    rw [HasDerivAt.deriv (hγhasDerivAt s)]
+    simp
+    rw [←spatial_gradient]
+    conv => {
+      lhs; enter [2,1]
+      rw [show (spatialCoord n) (fun i ↦ if h : i = 0 then 1 else b (i.pred h)) = b from by {
+        ext i
+        simp
+        intro contra
+        cases contra
+      }]
+    }
+    rw [AdjointSpace.real_inner_comm]
+    apply hpde1
+    simp [TransportDomain, hγ]
+    assumption
+
+    -- Proving differentiability
+    apply hu
+    apply hu
+    apply hγdiff
   }
 
   -- Apply fundamental theorem of calculus
-  have hconst : ∀ x, h x = h 0 := by {
-    sorry
+  have hfconst : ∀ x ≥ 0, f x = f 0 := by {
+    intro x hx
+    apply Convex.is_const_of_fderivWithin_eq_zero (𝕜:=ℝ) (s:=Set.Ici 0)
+    · exact convex_Ici 0
+    · intro y hy
+      exact DifferentiableAt.differentiableWithinAt (hfdiff y)
+    · intro y hy
+      rw [fderivWithin_eq_fderiv]
+      exact ContinuousLinearMap.ext_ring (hfderiv y hy)
+      exact (uniqueDiffOn_Ici 0).uniqueDiffWithinAt hy
+      exact hfdiff y
+    · exact hx
+    · exact Set.left_mem_Ici
   }
 
-  have h0 : u x = h (x 0) := by {
-    sorry
+  have h0 : u x = f (x 0) := by {
+    rw [hf, hγ]
+    congr
+    simp
+    ext i
+    split_ifs with hi
+    · rw [hi]
+    · rfl
   }
   -- Show u(x) = u(γ(x₀)) = u(γ(0)) = g(spatialCoord n x - x₀b)
   -- which is exactly transportFunction b g x
-  rw [h0, hconst]
+  rw [h0, hfconst]
 
   -- Initial condition
   have hinit : ∀ y : Euc ℝ n, u (embed_with_time_zero n y) = g y := by {
-    sorry
-  }
-  simp [transportFunction, h, γ]
-  convert hinit (spatialCoord n x - x 0 • b) with i
-  by_cases h : i = 0
-  · rw [h]
+    intro y
+    set z := embed_with_time_zero n y with hz; clear_value z
+    have hy : y = spatialCoord n z := by {
+      rw [hz]
+      simp
+    }
+    rw [hy]
+    apply hpde2
+    simp [InitialDomain]
+    rw [hz]
     simp
-  · simp [h]
+  }
+  simp [transportFunction, hf, hγ]
+  convert hinit (spatialCoord n x - x 0 • b) with i i
+  split_ifs with hi
+  · rw [hi]
+    simp
+  · simp [hi]
     congr
-    let j := i.pred h
+    let j := i.pred hi
     have hj : i = j.succ := by simp [j]
     rw [hj]
     simp
+  simp
+  exact hx
 }
-
-theorem my_theorem {α β : Type*} [NormedAddCommGroup β] {l : Filter α}
-    {f h g : α → β} (hfg : IsLittleO f g l) (hfh : IsTheta f h l) :
-    IsLittleO h g l := by
-  -- Use transitivity of little-o with big-Theta
-  apply isLittleO_trans_isTheta
-  · exact hfg
-  · exact isTheta_symm hfh

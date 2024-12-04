@@ -7,6 +7,7 @@ import Mathlib.Data.Matrix.Basic
 import Mathlib.LinearAlgebra.Basis.Defs
 import Mathlib.Data.Real.Basic
 import Mathlib.Analysis.InnerProductSpace.PiL2
+import PDE.AdjointSpace
 
 variable {𝕜 : Type*} [NontriviallyNormedField 𝕜]
 --variable {n : Type*} [Fintype n] [DecidableEq n]
@@ -20,10 +21,38 @@ set_option diagnostics true
 set_option diagnostics.threshold 30000
 
 /-- Euclidean space of dimension n -/
-abbrev Euc 𝕜 n := EuclideanSpace 𝕜 (Fin n)
+abbrev Euc 𝕜 n :=  (Fin n) → 𝕜
 
 /-- The standard basis vector in direction i for n-dimensional space. -/
 def standardBasis (i : Fin n) : Euc 𝕜 n := fun j => if i = j then 1 else 0
+
+@[simp]
+theorem standardBasis_self (i : Fin n) : (standardBasis i : Euc 𝕜 n) i = 1 := by
+  simp [standardBasis]
+
+@[simp]
+theorem standardBasis_neq (i j : Fin n) (h : i ≠ j) : (standardBasis i : Euc 𝕜 n) j = 0 := by
+  simp [standardBasis, h]
+
+@[simp]
+theorem standardBasis_succ_zero (i : Fin n) : (standardBasis (i.succ) : Euc 𝕜 (n+1)) 0 = 0 := by
+  simp [standardBasis]
+  exact Fin.succ_ne_zero i
+
+@[simp]
+theorem standardBasis_zero_succ (i : Fin n) : (standardBasis 0 : Euc 𝕜 (n+1)) (i.succ) = 0 := by
+  simp [standardBasis]
+  exact ne_of_beq_false rfl
+
+@[simp]
+theorem standardBasis_succ_succ (i j : Fin n) :
+  standardBasis (i.succ) (j.succ) = (standardBasis i : Euc 𝕜 n) j := by
+  simp [standardBasis]
+
+/-- Using ℝ because inner product is not defined on Euc 𝕜 n -/
+@[simp]
+theorem inner_standardBasis_left (i : Fin n) (x : Euc ℝ n) : inner (standardBasis i) x = x i := by
+  simp [inner, standardBasis]
 
 /-- Any vector in Euclidean space is a sum of its basis components -/
 theorem euc_eq_sum_basis (b : Euc 𝕜 n) : b = ∑ i, b i • standardBasis i := by {
@@ -191,6 +220,11 @@ theorem partialDeriv_comp {i : Fin n} {f : Euc 𝕜 n → Euc 𝕜 m} {g : Euc �
 /-- Projection onto the i-th coordinate -/
 def euc_proj (n : ℕ) (i : Fin n) : Euc 𝕜 n →L[𝕜] 𝕜 := ContinuousLinearMap.proj i
 
+@[simp]
+theorem euc_proj_apply (n : ℕ) (i : Fin n) (x : Euc 𝕜 n) :
+  (euc_proj n i) x = x i := by
+  simp [euc_proj]
+
 /-- Fderiv of projection is projection -/
 theorem fderiv_euc_proj (i : Fin n) (x : Euc 𝕜 n) :
   fderiv 𝕜 (euc_proj n i) x = euc_proj n i := by
@@ -206,77 +240,6 @@ theorem partialDeriv_coord {i : Fin n} {j : Fin m} {f : Euc 𝕜 n → Euc 𝕜 
   simp [euc_proj, ContinuousLinearMap.proj, LinearMap.proj] at hcomp
   rw [←hcomp]
   congr
-
-theorem sup_norm_le_euc_norm {v : Euc ℝ n} :
-  ‖fun i : Fin n => v i‖ ≤ ‖v‖ := by
-  sorry
-  rw [EuclideanSpace.norm_eq]
-  refine Real.iSup_le ?hf ?ha
-  intro i
-  rw [Real.le_sqrt]
-  · set f := fun j => ‖v j‖ ^ 2 with hf
-    rw [show ‖v i‖ ^ 2 = f i from rfl]
-    apply Finset.single_le_sum
-    intro j hj
-    simp [hf]
-    exact sq_nonneg (v j)
-    simp
-  · exact norm_nonneg (v i)
-  · apply Fintype.sum_nonneg
-    intro j
-    simp
-    exact sq_nonneg (v j)
-  · apply Real.sqrt_nonneg
-
-
-theorem euc_norm_le_sqrt_n_sup_norm {v : Euc ℝ n} :
-  ‖v‖ ≤ √n * ‖fun i:Fin n => v i‖ := by
-  sorry
-  rw [show √n * ⨆ i, ‖v i‖ = √(n * ⨆ i, ‖v i‖^2) from by {
-    simp
-    left
-    sorry
-  }]
-  rw [EuclideanSpace.norm_eq]
-  apply Real.sqrt_le_sqrt
-  simp
-  sorry
-
-theorem euc_norm_isTheta_sup_norm {v : Euc ℝ n} :
-  ‖v‖ =Θ[nhds ] √n * ⨆ i, ‖v i‖ := by
-  sorry
-
-theorem hasDerivAt_pi_euc {φ : ℝ → Euc ℝ n} {φ' : Euc ℝ n} {x : ℝ} :
-    HasDerivAt φ φ' x ↔ ∀ i, HasDerivAt (fun x => φ x i) (φ' i) x := by
-  let f := fun x i => φ x i
-  simp [hasDerivAt_iff_isLittleO]
-  rw [←Asymptotics.isLittleO_pi]
-  constructor <;> intro h
-  · apply Asymptotics.IsBigO.trans_isLittleO ?_ h
-    apply Asymptotics.isBigO_of_le
-    intro y
-    set v := φ y - φ x - (y - x) • φ' with hv; clear_value v
-    have hvi (i : Fin n) : v i = φ y i - φ x i - (y - x) * φ' i := by {
-      sorry
-    }
-    conv => {
-      lhs; enter [1,i]
-      rw [← hvi i]
-    }
-    apply sup_norm_le_euc_norm
-  · apply Asymptotics.IsBigO.trans_isLittleO ?_ h
-    apply Asymptotics.isBigO_of_le' (c:= √n)
-    intro y
-    set v := φ y - φ x - (y - x) • φ' with hv; clear_value v
-    have hvi (i : Fin n) : v i = φ y i - φ x i - (y - x) * φ' i := by {
-      sorry
-    }
-    conv => {
-      rhs; enter [2,1,i]
-      rw [← hvi i]
-    }
-    apply euc_norm_le_sqrt_n_sup_norm
-
 
 
 /-!
@@ -294,6 +257,11 @@ This file defines the fundamental differential operators of vector calculus:
 noncomputable def gradient (f : Euc 𝕜 n → 𝕜)
     (x : Euc 𝕜 n) : Euc 𝕜 n :=
   fun i => partialDeriv i f x
+
+@[simp]
+theorem gradient_apply (f : Euc 𝕜 n → 𝕜) (x : Euc 𝕜 n) (i : Fin n) :
+  gradient f x i = partialDeriv i f x := by
+  simp [gradient]
 
 /-- Divergence of a vector field F: ℝⁿ → ℝⁿ.
     ∇·F = ∑ᵢ ∂Fᵢ/∂xᵢ -/
@@ -365,16 +333,12 @@ theorem gradient_sum (f g : Euc 𝕜 n → 𝕜) (x : Euc 𝕜 n) (hf : Differen
 theorem fderiv_eq_gradient_inner {f : Euc ℝ n → ℝ} {x b : Euc ℝ n} (hf : DifferentiableAt ℝ f x) :
   fderiv ℝ f x b = inner b (gradient f x) := by
   unfold gradient
-  simp
+  simp [inner]
   rw [euc_eq_sum_basis b]
   rw [map_sum]
   congr
   ext i
   rw [partialDeriv_eq_fderiv i x hf]
-  simp
-  rw [Finset.sum_apply]
-  simp
-  left
   unfold standardBasis
   simp
 
@@ -661,12 +625,31 @@ noncomputable def spatialCoord (n : ℕ) : Euc ℝ (n+1) →L[ℝ] Euc ℝ n := 
     apply continuous_pi
     intro i
     simp
-    apply continuous_apply (i + 1 : Fin (n+1))
+    apply continuous_apply (i.succ)
 }
 
 /-- Spatial coordinate at index i -/
 @[simp]
 theorem spatialCoord_apply (n : ℕ) (i : Fin n) (x : Euc ℝ (n+1)) : spatialCoord n x i = x (i + 1) := rfl
+
+@[simp]
+theorem spatialCoord_basis_succ (i : Fin n) :
+  spatialCoord n (standardBasis (i.succ)) = standardBasis i := by
+  simp [spatialCoord]
+
+@[simp]
+theorem spatialCoord_basis_zero :
+  spatialCoord n (standardBasis 0) = 0 := by
+  simp [spatialCoord]
+  ext i
+  simp
+
+/-- Inner product in Euc ℝ (n+1) splits into time component (index 0) and spatial components -/
+theorem inner_split_time_space (x y : Euc ℝ (n+1)) :
+    inner x y = x 0 * y 0 + inner (spatialCoord n x) (spatialCoord n y) := by {
+  simp [inner]
+  exact Fin.sum_univ_succAbove (fun i ↦ x i * y i) 0
+}
 
 /-- Embedding of ℝⁿ into ℝⁿ⁺¹, with time coordinate 0 -/
 noncomputable def embed_with_time_zero (n : ℕ) : Euc ℝ n →L[ℝ] Euc ℝ (n+1) := {
@@ -699,12 +682,20 @@ theorem embed_with_time_zero_apply_zero (n : ℕ) (x : Euc ℝ n) : (embed_with_
 @[simp]
 theorem embed_with_time_zero_apply_succ (n : ℕ) (i : Fin n) (x : Euc ℝ n) : (embed_with_time_zero n x) (i.succ) = x i := by {
   simp [embed_with_time_zero, Fin.succ_ne_zero]
-  rw [Fin.pred_succ i]
 }
 
 @[simp]
 theorem embed_with_time_zero_apply_of_ne_zero (n : ℕ) (i : Fin (n+1)) (x : Euc ℝ n) (hi : i ≠ 0) : (embed_with_time_zero n x) i = x (i.pred hi) := by {
   simp [embed_with_time_zero, hi]
+}
+
+@[simp]
+theorem spatial_coord_embed_with_time_zero (n : ℕ) (x : Euc ℝ n) :
+  spatialCoord n (embed_with_time_zero n x) = x := by {
+  ext i
+  simp [spatialCoord, embed_with_time_zero]
+  intro con
+  cases con
 }
 
 /-- Spatial gradient of a function (excluding time derivative) -/
